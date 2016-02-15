@@ -11,6 +11,8 @@
 (defn -main []
  (let [urls ["http://dsp-no-bid.compe"]
        ;; send the request concurrently (asynchronously)
-       futures (doall (map (fn [url] (http/post url options)) urls))
-       resps   (map (fn [future] @future) futures)]
-   (println resps)))
+       futures (doall (map (fn [url] (http/post url options)) urls))]
+   (with-async-results [resps futures]
+     (-> resps
+         (pick-winner)
+         (winnotice)))))
