@@ -1,110 +1,124 @@
 (ns s7p.core
   (:require [clojure.data.json :as json]
             [org.httpkit.client :as http]
-            [clojure.core.async :as a]))
+            [clojure.core.async :refer [go go-loop chan close! <! <!! >!]]))
 
 (def options {:timeout 100
               :keepalive 3000})
 
-(def urls ["http://dsp-no-bid.compe"])
+(def dsps (atom
+           [{:id "1"
+             :url "http://dsp-no-bid.compe"
+             :winnotice "http://dsp-no-bid.compe"}
+            {:id "2"
+             :url "http://dsp-no-bid.compe"
+             :winnotice "http://dsp-no-bid.compe"}
+            {:id "3"
+             :url "http://dsp-no-bid.compe"
+             :winnotice "http://dsp-no-bid.compe"}
+            {:id "4"
+             :url "http://dsp-no-bid.compe"
+             :winnotice "http://dsp-no-bid.compe"}
+            {:id "5"
+             :url "http://dsp-no-bid.compe"
+             :winnotice "http://dsp-no-bid.compe"}
+            {:id "6"
+             :url "http://dsp-no-bid.compe"
+             :winnotice "http://dsp-no-bid.compe"}
+            {:id "7"
+             :url "http://dsp-no-bid.compe"
+             :winnotice "http://dsp-no-bid.compe"}]))
+
+(def advertisers [{:id "1"} {:id "2"} {:id "3"} {:id "4"}])
 
 (def request
-  {:id "id"
-   :floorPrice 0.1
-   :site "http://github.com/KeenS"
-   :device "Android"
-   :user "user-1"
-   :test 1})
+  {:req {:id "id"
+    :floorPrice 0.1
+    :site "http://github.com/KeenS"
+    :device "Android"
+    :user "user-1"
+    :test 1}
+   :result [true]})
 
-(defn validate [{:keys [status body error]}]
-  ;; FIXME: implement
-  (and
-   (= status 200)
-   ;; TODO: treat 204 and the others
+(defn validate [[dsp res]]
+  (let [{:keys [status body error]} @res
+        body (and body (json/read-str body :key-fn keyword))
+        {:keys [id bidPrice advertiserId]} body
+        ret (cond
+              (= status 204) {:nobid "no bid"}
 
-   (:id body)
-   ;; and string
-
-   (:bidPrice body)
-   ;; and double
-
-   (:advertiserId body)
-   ;; and string
-
-   )
-  {:valid body}
-  )
-
-(defn succeed? [res]
-  ;; FIXME: implement
-  {:valid res}
-  true
-  )
+              (not (= status 200)) {:invalid "not succeed" :status status}
 
 
-(defn argmaxes-and-second [default key col]
-  ;; FIXME: implement
-  )
+              body {:invalid "no body"}
+
+              (not id) {:invalid "no id"}
+              (not (instance? String id)) {:invalid "id not string" :id id}
+
+              (not bidPrice) {:invalid "no bid price"}
+              (not (instance? Double bidPrice)) {:invalid "bidPrice not double" :bidPrice bidPrice}
+
+              (not advertiserId) {:invalid "no advertiser id"}
+              (not (instance? String advertiserId)) {:invalid "advertiserId not string" :advertiserId advertiserId}
+              true   {:valid body})]
+    [dsp ret]))
+
+(defn succeed? [[_ res]]
+  (:valid res))
+
 
 (defn pick-winner-and-second-price [floor-price resps]
-  ;; TODO: second price
-  (->> resps
-       ;; shuffle
-       ;; sort
-       ;; take2
-       (argmaxes-and-second floor-price :bidPrice)
-       ;; branch the size of maxes
-       (rand-nth)))
+  (case  (count resps)
+    ;; TODO: log no contest
+    0 nil
+    1 (let [res (first resps)
+            fp (or floor-price (:bidPrice res))]
+        [res fp])
+    _ (let [[res second-price] (->> (conj {:bidPrice floor-price} resps)
+                             (shuffle)
+                             (take 2))]
+        [res (:bidPrice second-price)])))
 
-(defn winnotice [request result response]
-  ;; FIXME: implement
+(defn click? [result response]
+  (result (.indexOf advertisers (:advertiserId response))))
+
+(defn winnotice [request result [[dsp response] second-price]]
+  ;; TODO: log
   (println response)
-  (http/post (:winnotic-url response)
-             (assoc merge {:id "id" :price 0.1 :isClick true}))
-  )
 
-(defn xf [options]
-  (comp
-   (map (fn [url] (http/post url (conj options))))
-   (map (fn [future] @future))
-   (map validate)
-   ;; log validated responses
-   (filter succeed?)
-   (map :res)))
-
-
-
-(defn floor-price [req]
-  ;; FIXME: implement
-  0
-  )
+  (http/post (:winnotice dsp)
+             {:id (:advertiserId response)
+              :price (+ 1 second-price)
+              :isClick (click? result response)}))
 
 (defn gen-request [n]
-  (let [c (a/chan)]
-    (a/go-loop [i n]
-      (a/>! c request)
+  (let [c (chan)]
+    (go-loop [i n]
+      (>! c request)
       (if (< 0 i)
         (recur (- i 1))
-        (a/close! c)))
+        (close! c)))
     c))
 
-(defn process [chan]
-  (let [sig (a/chan)]
-   (a/go-loop []
-     (if-let [{:keys [req result]} (a/<! chan)]
-       (do
-         (a/go
-           (some->> (sequence (xf (assoc options :body (json/write-str req)))
-                              urls)
-                    (pick-winner-and-second-price (floor-price req))
-                    ;; log winner
-                    (winnotice req result)))
+(defn process [c]
+  (let [sig (chan)]
+   (go-loop []
+     (if-let [{:keys [req result]} (<! c)]
+       (let [xf (comp
+                 (map (fn [dsp] [dsp (http/post (:url dsp) (assoc options :body (json/write-str req)))]))
+                 (map validate)
+                 ;; TODO: log validated responses
+                 (filter succeed?)
+                 (map (fn [[_ res]] (:valid res))))]
+         (some->> (sequence xf @dsps)
+                  (pick-winner-and-second-price (:floorPrice req))
+                  (winnotice req result))
          (recur))
-       (do
-         (a/close! sig))))))
+       (close! sig)))
+   sig))
 
 
 (defn -main []
-  (let [c (gen-request 1)
-        sig (process c)]
-    (println (a/<!! sig))))
+  (time (let [c (gen-request 100)
+         sig (process c)]
+     (<!! sig))))
