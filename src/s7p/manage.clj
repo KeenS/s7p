@@ -6,5 +6,5 @@
   (swap! dsps conj dsp))
 
 (defn remove-dsp [id]
-  (reset! dsps (remove #(= (:id _) id) @dsps)))
+  (reset! dsps (remove #(= (:id %) id) @dsps)))
 
