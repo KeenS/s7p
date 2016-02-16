@@ -1,7 +1,7 @@
 (ns s7p.core
   (:require [clojure.data.json :as json]
             [org.httpkit.client :as http]
-            [core.async :refer [go]]))
+            [clojure.core.async :as a]))
 
 (def options {:timeout 100
               :keepalive 3000})
@@ -16,28 +16,28 @@
    :user "user-1"
    :test 1})
 
-(defn validate [{:keys status body error}]
+(defn validate [{:keys [status body error]}]
   ;; FIXME: implement
   (and
    (= status 200)
    ;; TODO: treat 204 and the others
 
-   (:id res)
+   (:id body)
    ;; and string
 
-   (:bidPrice res)
+   (:bidPrice body)
    ;; and double
 
-   (:advertiserId res)
+   (:advertiserId body)
    ;; and string
 
    )
-  {:valid res}
+  {:valid body}
   )
 
 (defn succeed? [res]
   ;; FIXME: implement
-  {:valid}
+  {:valid res}
   true
   )
 
@@ -49,6 +49,9 @@
 (defn pick-winner-and-second-price [floor-price resps]
   ;; TODO: second price
   (->> resps
+       ;; shuffle
+       ;; sort
+       ;; take2
        (argmaxes-and-second floor-price :bidPrice)
        ;; branch the size of maxes
        (rand-nth)))
@@ -71,27 +74,37 @@
 
 
 
+(defn floor-price [req]
+  ;; FIXME: implement
+  0
+  )
+
 (defn gen-request [n]
-  (let [c (chan)])
-  (go
-    (loop [i n]
-      (>! c request)
+  (let [c (a/chan)]
+    (a/go-loop [i n]
+      (a/>! c request)
       (if (< 0 i)
-        (recur (- i 1)))))
-  c)
+        (recur (- i 1))
+        (a/close! c)))
+    c))
 
 (defn process [chan]
-  (loop []
-    (let [{:keys [req result]} (<! chan)]
-      (go
-        (some->> (sequence (xf (assoc options :body (json/write-str req)))
-                       urls)
-             (pick-winner-and-second-price (floor-price req))
-             ;; log winner
-             (winnotice req result))))
-    (recur)))
+  (let [sig (a/chan)]
+   (a/go-loop []
+     (if-let [{:keys [req result]} (a/<! chan)]
+       (do
+         (a/go
+           (some->> (sequence (xf (assoc options :body (json/write-str req)))
+                              urls)
+                    (pick-winner-and-second-price (floor-price req))
+                    ;; log winner
+                    (winnotice req result)))
+         (recur))
+       (do
+         (a/close! sig))))))
 
 
 (defn -main []
-  (let [c (gen-request 1)]
-      (process chan)))
+  (let [c (gen-request 1)
+        sig (process c)]
+    (println (a/<!! sig))))
