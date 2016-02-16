@@ -63,11 +63,8 @@
                :price (+ 1 second-price)
                :isClick (click? result response)})))
 
-(defn worker [c]
-  (thread
-    (loop []
-      (when-let [{:keys [req result]} (<!! c)]
-        (let [xf (comp
+(defn work [req result]
+  (let [xf (comp
                   (map (fn [dsp] [dsp (http/post (:url dsp) (json-request-option req))]))
                   (map validate)
                   ;; TODO: log validated responses
@@ -75,6 +72,19 @@
                   (map (fn [[_ res]] (:valid res))))]
           (some->> (sequence xf @dsps)
                    (pick-winner-and-second-price (:floorPrice req))
-                   (winnotice req result)
-                   )
-          (recur))))))
+                   (winnotice req result))))
+
+(defn test [req]
+  (let [xf (comp
+            (map (fn [dsp] [dsp (http/post (:url dsp) (json-request-option req))]))
+            (map validate))]
+          (sequence xf @dsps)))
+
+(defn worker [c]
+  (thread
+    (loop []
+      (when-let [{:keys [req result]} (<!! c)]
+        (if (= 1 (:test req))
+          (test req)
+          (work req result))
+        (recur)))))
