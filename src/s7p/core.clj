@@ -1,49 +1,15 @@
 (ns s7p.core
   (:require [clojure.data.json :as json]
             [org.httpkit.client :as http]
-            [clojure.core.async :refer [thread chan close!  <!! >!!]])
-  (:gen-class)
-  )
+            [clojure.core.async :refer [thread close!  <!!]]
+            [s7p.config :refer [advertisers dsps]]))
 
 (def options {:timeout 100
               :keepalive 3000})
 
-(def someurl "")
 
-(def dsps (atom
-           [{:id "1"
-             :url someurl
-             :winnotice someurl}
-            {:id "2"
-             :url someurl
-             :winnotice someurl}
-            {:id "3"
-             :url someurl
-             :winnotice someurl}
-            {:id "4"
-             :url someurl
-             :winnotice someurl}
-            {:id "5"
-             :url someurl
-             :winnotice someurl}
-            {:id "6"
-             :url someurl
-             :winnotice someurl}
-            {:id "7"
-             :url someurl
-             :winnotice someurl}
-            ]))
-
-(def advertisers [{:id "1"} {:id "2"} {:id "3"} {:id "4"}])
-
-(def request
-  {:req {:id "id"
-    :floorPrice 0.1
-    :site "http://github.com/KeenS"
-    :device "Android"
-    :user "user-1"
-    :test 1}
-   :result [true]})
+(defn json-request-option [hash]
+  (assoc options :body (json/write-str hash)))
 
 (defn validate [[dsp res]]
   (let [{:keys [status body]} @res
@@ -89,30 +55,20 @@
 
 (defn winnotice [request result [[dsp response] second-price]]
   ;; TODO: log
-  (println response)
+  (println (assoc response :id (:id dsp)))
 
-  (http/post  (:winnotice dsp)
-             ;; FIXME: options
-             {:id (:advertiserId response)
-              :price (+ 1 second-price)
-              :isClick (click? result response)}))
+  (http/post (:winnotice dsp)
+             (json-request-option
+              {:id (:advertiserId response)
+               :price (+ 1 second-price)
+               :isClick (click? result response)})))
 
-(defn gen-request [n]
-  (let [c (chan)]
-    (thread
-      (loop [i n]
-        (>!! c request)
-        (if (< 0 i)
-          (recur (- i 1))
-          (close! c))))
-    c))
-
-(defn process [c]
+(defn worker [c]
   (thread
     (loop []
       (when-let [{:keys [req result]} (<!! c)]
         (let [xf (comp
-                  (map (fn [dsp] [dsp (http/post (:url dsp) (assoc options :body (json/write-str req)))]))
+                  (map (fn [dsp] [dsp (http/post (:url dsp) (json-request-option req))]))
                   (map validate)
                   ;; TODO: log validated responses
                   (filter succeed?)
@@ -122,9 +78,3 @@
                    (winnotice req result)
                    )
           (recur))))))
-
-
-(defn -main [& args]
-  (time (let [c (gen-request 1000)]
-          (doseq [sig (vec (map (fn [_] (process c)) (range 64)))]
-            (<!! sig)))))

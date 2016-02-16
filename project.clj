@@ -7,4 +7,5 @@
                  [org.clojure/data.json "0.2.6"]
                  [org.clojure/core.async "0.2.374"]
                  [http-kit "2.1.18"]]
-  :main s7p.core)
+;  :jvm-opts ["-Dclojure.compiler.direct-linking=true"]
+  :main s7p.main)
