@@ -74,7 +74,7 @@
                    (pick-winner-and-second-price (:floorPrice req))
                    (winnotice req result))))
 
-(defn test [req]
+(defn test-run [req]
   (let [xf (comp
             (map (fn [dsp] [dsp (http/post (:url dsp) (json-request-option req))]))
             (map validate))]
@@ -85,6 +85,6 @@
     (loop []
       (when-let [{:keys [req result]} (<!! c)]
         (if (= 1 (:test req))
-          (test req)
+          (test-run req)
           (work req result))
         (recur)))))
