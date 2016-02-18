@@ -4,7 +4,9 @@
    [clojure.tools.logging :as log]
    [cheshire.core :as json]
    [org.httpkit.client :as http]
-   [s7p.config :refer [advertisers dsps]]))
+   [s7p.config :refer [advertisers dsps]]
+   [s7p.slave.log.bidresponse :as bidresponse]
+   [s7p.slave.log.winnotice :as winnotice]))
 
 (def options {:timeout 100
               :keepalive 3000})
@@ -34,11 +36,12 @@
               (not advertiserId) {:invalid "no advertiser id"}
               (not (instance? String advertiserId)) {:status :invalid :reason "advertiserId not string" :advertiserId advertiserId}
               true   {:status :valid :response body})]
-    [dsp ret]))
+    (println "called2")
+    (assoc ret :dsp dsp)))
 
 (defn log-validated [arg]
   (let [[{dsp :dsp v :response}] arg]
-   (log/info (json/generate-string (assoc v :id (:dsp_id dsp)))))
+   (bidresponse/log (assoc v :id (:dsp_id dsp))))
   arg)
 
 (defn succeed? [v]
@@ -75,8 +78,8 @@
 (defn log-winnotice-option [data]
   (if data
     (let [{dsp :dsp notice :notice} data]
-      (log/info (json/generate-string (assoc notice :status "auction" :dsp_id (:id dsp)))))
-    (log/info (json/generate-string {:status "no auction"}))))
+      (winnotice/log (assoc notice :status "auction" :dsp_id (:id dsp))))
+    (winnotice/log {:status "no auction"})))
 
 (defn winnotice [dsp {notice :notice}]
   (http/post (:winnotice dsp) (json-request-option notice)))

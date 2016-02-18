@@ -2,7 +2,6 @@
   (:gen-class)
   (:require
    [clojure.core.async :refer [thread close! chan >!! <!!]]
-   [clojure.tools.logging :as log]
    [cheshire.core :as json]
    [zeromq.zmq :as zmq]
    [s7p.config :as config]
@@ -15,7 +14,6 @@
     (loop []
       (let [json (zmq/receive-str reciever)
             req (json/parse-string json true)]
-        (log/info json)
         (>!! ch req)
         (recur)))))
 
