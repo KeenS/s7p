@@ -27,6 +27,7 @@
          {:keys [id bidPrice advertiserId]} body
          ret (cond
                (= status 204) {:status :no-bid}
+               (not status) {:status :timeout}
                (not (= status 200)) {:status :invalid :reason "response status" :code status}
                (not body) {:status :invalid :reason "no body"}
                (not id) {:status :invalid :invalid "no bid id"}
