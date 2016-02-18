@@ -13,17 +13,16 @@
 (def options {:timeout 100
               :keepalive 3000})
 
-
 (defn json-request-option [hash]
-  (assoc options :body (json/generate-string hash)))
+  (assoc options :as :text :body (json/generate-string hash)))
 
 (defn destruct [{dsp :dsp res :response}]
   (let [{:keys [status body]} @res]
-    {:dsp dsp :status status :body :body}))
+    {:dsp dsp :status status :body body}))
 
 (defn validate [{dsp :dsp status :status body :body}]
   (try
-   (let [body (and body (json/parse-string (apply str (map char body)) true))
+   (let [body (and body (json/parse-string body true))
          {:keys [id bidPrice advertiserId]} body
          ret (cond
                (= status 204) {:status :no-bid}
@@ -58,7 +57,6 @@
 
 (defn auction [floor-price resps]
   (case  (count resps)
-    ;; TODO: log no contest
     0 nil
     1 (let [{dsp :dsp res :response} (first resps)
             fp (or floor-price (:bidPrice res))]
@@ -70,8 +68,8 @@
                (take 2))]
       {:dsp dsp :response res :second-price (:bidPrice second-price)})))
 
-(defn click? [result {response :response}]
-  (result (.indexOf advertisers (:advertiserId response))))
+(defn click? [result response]
+  (result (.indexOf (map :id advertisers) (:advertiserId response))))
 
 (defn non-nil [f data]
   (if data
@@ -90,18 +88,18 @@
       (winnotice/log (assoc notice :status "auction" :dsp_id (:id dsp))))
     (winnotice/log {:status "no auction"})))
 
-(defn winnotice [dsp {notice :notice}]
+(defn winnotice [{dsp :dsp notice :notice}]
   (http/post (:winnotice dsp) (json-request-option notice)))
 
 (defn work [req result]
   (->> @dsps
        (sequence (comp
-                  (map (fn [dsp] {:dsp dsp :response (http/post (:url dsp) {:as :text} (json-request-option req))}))
+                  (map (fn [dsp] {:dsp dsp :response (http/post (:url dsp) (json-request-option req))}))
                   (map destruct)
                   (map validate)
                   (map log-validated)
                   (filter succeed?)
-                  (map (fn [[dsp res]] {:dsp dsp :response (:response res)}))
+                  (map (fn [{dsp :dsp res :response}] {:dsp dsp :response res}))
                   (filter #(over-floor? (:floorPrice req) %))))
        (auction (:floorPrice req))
        (non-nil #(to-winnotice result %))
@@ -111,9 +109,10 @@
 (defn test-run [req]
   (->> @dsps
    (sequence (comp
-              (map (fn [dsp] [dsp (http/post (:url dsp) (json-request-option req))]))
+              (map (fn [dsp] {:dsp dsp :response (http/post (:url dsp) (json-request-option req))}))
               (map destruct)
-              (map validate)))))
+              (map validate)
+              (map log-validated)))))
 
 (defn worker [c]
   (thread
