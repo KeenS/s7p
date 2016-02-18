@@ -41,11 +41,11 @@
    (catch JsonParseException e {:status :invalid :reason "invalid JSON"})
    (catch Exception          e {:status :invalid :reason (format "validation process raised unexpected error: %s" e)})))
 
-(defn log-validated [arg]
+(defn log-validated [test arg]
   (let [{dsp :dsp res :response status :status} arg]
     (if (= status :valid)
-      (bidresponse/log (assoc res :status :valid :dsp_id (:id dsp)))
-      (bidresponse/log (assoc (dissoc arg :dsp)  :dsp_id (:id dsp)))))
+      (bidresponse/log (assoc res :status :valid :dspId (:id dsp) :test test))
+      (bidresponse/log (assoc (dissoc arg :dsp)  :dspId (:id dsp) :test test))))
   arg)
 
 (defn succeed? [v]
@@ -87,7 +87,7 @@
 (defn log-winnotice-option [data]
   (if data
     (let [{dsp :dsp notice :notice} data]
-      (winnotice/log (assoc notice :status "auction" :dsp_id (:id dsp))))
+      (winnotice/log (assoc notice :status "auction" :dspId (:id dsp))))
     (winnotice/log {:status "no auction"})))
 
 (defn winnotice [{dsp :dsp notice :notice}]
@@ -99,7 +99,7 @@
                   (map (fn [dsp] {:dsp dsp :response (http/post (:url dsp) (json-request-option req))}))
                   (map destruct)
                   (map validate)
-                  (map log-validated)
+                  (map #(log-validated false %))
                   (filter succeed?)
                   (map (fn [{dsp :dsp res :response}] {:dsp dsp :response res}))
                   (filter #(over-floor? (:floorPrice req) %))))
@@ -114,7 +114,7 @@
               (map (fn [dsp] {:dsp dsp :response (http/post (:url dsp) (json-request-option req))}))
               (map destruct)
               (map validate)
-              (map log-validated)))))
+              (map #(log-validated true %))))))
 
 (defn worker [c]
   (thread
