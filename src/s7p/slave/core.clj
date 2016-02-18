@@ -49,6 +49,11 @@
   (= :valid (:status v)))
 
 
+(defn over-floor? [floor-price {res :response}]
+  (if floor-price
+    (<= floor-price (:bidPrice res))
+    true))
+
 (defn auction [floor-price resps]
   (case  (count resps)
     ;; TODO: log no contest
@@ -93,17 +98,19 @@
                   (map validate)
                   (map log-validated)
                   (filter succeed?)
-                  (map (fn [[dsp res]] (dsp (:response res))))))
+                  (map (fn [[dsp res]] (dsp (:response res))))
+                  (filter #(over-floor? (:floorPrice req) %))))
        (auction (:floorPrice req))
        (non-nil #(to-winnotice result %))
        (log-winnotice-option)
        (non-nil winnotice)))
 
 (defn test-run [req]
-  (sequence (comp
-             (map (fn [dsp] [dsp (http/post (:url dsp) (json-request-option req))]))
-             (map validate))
-            @dsps))
+  (->> @dsps
+   (sequence (comp
+              (map (fn [dsp] [dsp (http/post (:url dsp) (json-request-option req))]))
+              (map destruct)
+              (map validate)))))
 
 (defn worker [c]
   (thread
