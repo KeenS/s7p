@@ -6,7 +6,9 @@
    [org.httpkit.client :as http]
    [s7p.config :refer [advertisers dsps]]
    [s7p.slave.log.bidresponse :as bidresponse]
-   [s7p.slave.log.winnotice :as winnotice]))
+   [s7p.slave.log.winnotice :as winnotice])
+  (:import
+   [com.fasterxml.jackson.core JsonParseException]))
 
 (def options {:timeout 100
               :keepalive 3000})
@@ -15,29 +17,33 @@
 (defn json-request-option [hash]
   (assoc options :body (json/generate-string hash)))
 
-(defn validate [{dsp :dsp res :response}]
-  (let [{:keys [status body]} @res
-        body (and body (json/parse-string (apply str (map char body)) true))
-        {:keys [id bidPrice advertiserId]} body
-        ret (cond
-              (= status 204) {:status "no-bid"}
+(defn destruct [{dsp :dsp res :response}]
+  (let [{:keys [status body]} @res]
+    {:dsp dsp :status status :body :body}))
 
-              (not (= status 200)) {:status :invalid :reason "response status" :code status}
+(defn validate [{dsp :dsp status :status body :body}]
+  (try
+   (let [body (and body (json/parse-string (apply str (map char body)) true))
+         {:keys [id bidPrice advertiserId]} body
+         ret (cond
+               (= status 204) {:status :no-bid}
+               (not (= status 200)) {:status :invalid :reason "response status" :code status}
 
 
-              body {:status :invalid :reason "no body"}
+               (not body) {:status :invalid :reason "no body"}
 
-              (not id) {:status :invalid :invalid "no bid id"}
-              (not (instance? String id)) {:status :invalid :reason "id not string" :id id}
+               (not id) {:status :invalid :invalid "no bid id"}
+               (not (instance? String id)) {:status :invalid :reason "id not string" :id id}
 
-              (not bidPrice) {:invalid "no bid price"}
-              (not (instance? Double bidPrice)) {:status :invalid :reason "bidPrice not double" :bidPrice bidPrice}
+               (not bidPrice) {:status :invalid :reason "no bid price"}
+               (not (instance? Double bidPrice)) {:status :invalid :reason "bidPrice not double" :bidPrice bidPrice}
 
-              (not advertiserId) {:invalid "no advertiser id"}
-              (not (instance? String advertiserId)) {:status :invalid :reason "advertiserId not string" :advertiserId advertiserId}
-              true   {:status :valid :response body})]
-    (println "called2")
-    (assoc ret :dsp dsp)))
+               (not advertiserId) {:status :invalid :reason "no advertiser id"}
+               (not (instance? String advertiserId)) {:status :invalid :reason "advertiserId not string" :advertiserId advertiserId}
+               true   {:status :valid :response body})]
+     (assoc ret :dsp dsp))
+   (catch JsonParseException e {:status :invalid :reason "invalid JSON"})
+   (catch Exception          e {:status :invalid :reason (format "validation process raised unexpected error: %s" e)})))
 
 (defn log-validated [arg]
   (let [[{dsp :dsp v :response}] arg]
@@ -88,6 +94,7 @@
   (->> @dsps
        (sequence (comp
                   (map (fn [dsp] {:dsp dsp :response (http/post (:url dsp) {:as :text} (json-request-option req))}))
+                  (map destruct)
                   (map validate)
                   (map log-validated)
                   (filter succeed?)
