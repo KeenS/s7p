@@ -11,19 +11,18 @@
 (defn timer [ms]
   (let [c (chan)]
     (go-loop [n 0]
-      (>! c n)
       (<! (timeout ms))
-      (recur (+ n 1)))
+      (if (>! c n)
+       (recur (+ n 1))))
     c))
 
-(defn enqueue-query-timer [sender reqs]
-  (let [t (timer 100)]
-   (go-loop [reqs reqs]
-     (println (<! t))
-     (doall
-      (doseq [req (take @qp100ms reqs)]
-        (zmq/send-str sender (json/generate-string req))))
-     (recur (drop qp100ms reqs)))))
+(defn enqueue-query-timer [timer sender reqs]
+  (go-loop [reqs reqs]
+    (println (<! timer))
+    (doall
+     (doseq [req (take @qp100ms reqs)]
+       (zmq/send-str sender (json/generate-string req))))
+    (recur (drop qp100ms reqs))))
 
 (defn create-dsp [pub dsp]
   (swap! dsps conj dsp)
