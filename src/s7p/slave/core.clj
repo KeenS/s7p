@@ -28,16 +28,11 @@
          ret (cond
                (= status 204) {:status :no-bid}
                (not (= status 200)) {:status :invalid :reason "response status" :code status}
-
-
                (not body) {:status :invalid :reason "no body"}
-
                (not id) {:status :invalid :invalid "no bid id"}
                (not (instance? String id)) {:status :invalid :reason "id not string" :id id}
-
                (not bidPrice) {:status :invalid :reason "no bid price"}
                (not (instance? Double bidPrice)) {:status :invalid :reason "bidPrice not double" :bidPrice bidPrice}
-
                (not advertiserId) {:status :invalid :reason "no advertiser id"}
                (not (instance? String advertiserId)) {:status :invalid :reason "advertiserId not string" :advertiserId advertiserId}
                true   {:status :valid :response body})]
