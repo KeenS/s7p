@@ -26,7 +26,7 @@
      (recur (drop qp100ms reqs)))))
 
 (defn create-dsp [pub dsp]
-  (zmq/send-str pub (json/generate-string {:command :create-dsp :data dsp})))
+  (zmq/send-str pub (json/generate-string {:command "create-dsp" :data dsp})))
 
 (defn remove-dsp [pub id]
-  (zmq/send-str pub (json/generate-string {:command :remove-dsp :data id})))
+  (zmq/send-str pub (json/generate-string {:command "remove-dsp" :data id})))
