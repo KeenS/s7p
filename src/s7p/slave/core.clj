@@ -84,16 +84,16 @@
             :price (+ 1 second-price)
             :isClick (click? result response)}})
 
-(defn log-winnotice-option [data]
+(defn log-winnotice-option [test data]
   (if data
     (let [{dsp :dsp notice :notice} data]
-      (winnotice/log (assoc notice :status "auction" :dspId (:id dsp))))
-    (winnotice/log {:status "no auction"})))
+      (winnotice/log (assoc notice :status "auction" :dspId (:id dsp) :test test)))
+    (winnotice/log {:status "no auction" :test test})))
 
 (defn winnotice [{dsp :dsp notice :notice}]
   (http/post (:winnotice dsp) (json-request-option notice)))
 
-(defn work [req result]
+(defn work [test req result]
   (->> @dsps
        (sequence (comp
                   (map (fn [dsp] {:dsp dsp :response (http/post (:url dsp) (json-request-option req))}))
@@ -105,22 +105,12 @@
                   (filter #(over-floor? (:floorPrice req) %))))
        (auction (:floorPrice req))
        (non-nil #(to-winnotice result %))
-       (log-winnotice-option)
+       (log-winnotice-option false)
        (non-nil winnotice)))
-
-(defn test-run [req]
-  (->> @dsps
-   (sequence (comp
-              (map (fn [dsp] {:dsp dsp :response (http/post (:url dsp) (json-request-option req))}))
-              (map destruct)
-              (map validate)
-              (map #(log-validated true %))))))
 
 (defn worker [c]
   (thread
     (loop []
       (when-let [{:keys [req result]} (<!! c)]
-        (if (= 1 (:test req))
-          (test-run req)
-          (work req result))
+        (work (= 1 (:test req)) req result)
         (recur)))))
