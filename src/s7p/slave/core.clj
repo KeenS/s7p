@@ -61,11 +61,12 @@
     1 (let [{dsp :dsp res :response} (first resps)
             fp (or floor-price (:bidPrice res))]
         {:dsp dsp :response res :second-price fp})
-    _ (let [[{dsp :dsp res :response} {second-price :response}]
-            (->> (conj {:bidPrice floor-price} resps)
-                 (shuffle)
-                 (take 2))]
-        {:dsp dsp :response res :second-price (:bidPrice second-price)})))
+    (let [[{dsp :dsp res :response} {second-price :response}]
+          (->> resps
+               (shuffle)
+               (sort-by (comp :bidPrice :response) >)
+               (take 2))]
+      {:dsp dsp :response res :second-price (:bidPrice second-price)})))
 
 (defn click? [result {response :response}]
   (result (.indexOf advertisers (:advertiserId response))))
