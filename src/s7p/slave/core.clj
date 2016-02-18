@@ -41,8 +41,10 @@
    (catch Exception          e {:status :invalid :reason (format "validation process raised unexpected error: %s" e)})))
 
 (defn log-validated [arg]
-  (let [[{dsp :dsp v :response}] arg]
-   (bidresponse/log (assoc v :id (:dsp_id dsp))))
+  (let [{dsp :dsp res :response status :status} arg]
+    (if (= status :valid)
+      (bidresponse/log (assoc res :status :valid :dsp_id (:id dsp)))
+      (bidresponse/log (assoc (dissoc arg :dsp)  :dsp_id (:id dsp)))))
   arg)
 
 (defn succeed? [v]
