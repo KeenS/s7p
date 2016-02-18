@@ -16,13 +16,20 @@
        (recur (+ n 1))))
     c))
 
-(defn enqueue-query-timer [timer sender reqs]
-  (go-loop [reqs reqs]
-    (println (<! timer))
-    (doall
-     (doseq [req (take @qp100ms reqs)]
-       (zmq/send-str sender (json/generate-string req))))
-    (recur (drop qp100ms reqs))))
+(defn start-query [sender reqs]
+  (let [timer (timer 100)]
+    (go-loop [reqs reqs]
+      (let [t (<! timer)]
+        (println t)
+        (doall
+         (doseq [req (take @qp100ms reqs)]
+           (zmq/send-str sender (json/generate-string req))))
+        (if t
+          (recur (drop qp100ms reqs)))))
+    timer))
+
+(defn stop-query [queries]
+  (close! queries))
 
 (defn create-dsp [pub dsp]
   (swap! dsps conj dsp)

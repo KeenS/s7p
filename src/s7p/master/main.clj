@@ -22,16 +22,16 @@
     :result      (mapv #(Integer. %) (subvec line 4))}))
 
 
-(defn -main [& args]
-  (let [context (zmq/zcontext 1)]
-    (with-open [in-file (io/reader (first args))
-                pub (doto (zmq/socket context :pub)
-                      (zmq/bind config/command-addr))
-                sender (doto (zmq/socket context :push)
-                         (zmq/bind config/req-addr))]
-      (let [reqs (map to-req (drop 1 (csv/read-csv in-file)))]
-        (let [t (core/enqueue-query-timer sender reqs)]
-          ;; (core/create-dsp pub (json/generate-string {:id "1" :url config/someurl}))
-          ;; (core/remove-dsp pub (json/generate-string {:id "1"}))
-          (<!! t)
-          )))))
+;; (defn -main [& args]
+;;   (let [context (zmq/zcontext 1)]
+;;     (with-open [in-file (io/reader (first args))
+;;                 pub (doto (zmq/socket context :pub)
+;;                       (zmq/bind config/command-addr))
+;;                 sender (doto (zmq/socket context :push)
+;;                          (zmq/bind config/req-addr))]
+;;       (let [reqs (map to-req (drop 1 (csv/read-csv in-file)))]
+;;         (let [t (core/enqueue-query-timer sender reqs)]
+;;           ;; (core/create-dsp pub (json/generate-string {:id "1" :url config/someurl}))
+;;           ;; (core/remove-dsp pub (json/generate-string {:id "1"}))
+;;           (<!! t)
+;;           )))))
