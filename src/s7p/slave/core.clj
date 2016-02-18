@@ -1,7 +1,7 @@
-(ns s7p.core
-  (:require [clojure.data.json :as json]
+(ns s7p.slave.core
+  (:require [cheshire.core :as json]
             [org.httpkit.client :as http]
-            [clojure.core.async :refer [thread close!  <!!]]
+            [clojure.core.async :refer [thread close! <!!]]
             [s7p.config :refer [advertisers dsps]]))
 
 (def options {:timeout 100
@@ -9,11 +9,11 @@
 
 
 (defn json-request-option [hash]
-  (assoc options :body (json/write-str hash)))
+  (assoc options :body (json/generate-string hash)))
 
 (defn validate [[dsp res]]
   (let [{:keys [status body]} @res
-        body (and body (json/read-str body :key-fn keyword :eof-error? false))
+        body (and body (json/parse-string (apply str (map char body)) true))
         {:keys [id bidPrice advertiserId]} body
         ret (cond
               (= status 204) {:nobid "no bid"}
@@ -65,7 +65,7 @@
 
 (defn work [req result]
   (let [xf (comp
-                  (map (fn [dsp] [dsp (http/post (:url dsp) (json-request-option req))]))
+                  (map (fn [dsp] [dsp (http/post (:url dsp) {:as :text} (json-request-option req))]))
                   (map validate)
                   ;; TODO: log validated responses
                   (filter succeed?)

@@ -27,3 +27,6 @@
             ]))
 
 (def advertisers [{:id "1"} {:id "2"} {:id "3"} {:id "4"}])
+
+(def req-addr "tcp://*:5557")
+(def command-addr "tcp://*:5558")
