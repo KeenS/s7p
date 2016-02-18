@@ -2,41 +2,71 @@
   (:require [clojure.test :refer :all]
             [s7p.slave.core :refer :all]))
 
-(def dsp {:id        "1"
+(def dsp1 {:id        "1"
+          :url       "http://example.com/api"
+          :winnotice "http://example.com/winnotice"})
+
+(def dsp2 {:id        "2"
+          :url       "http://example.com/api"
+           :winnotice "http://example.com/winnotice"})
+
+(def dsp3 {:id        "3"
           :url       "http://example.com/api"
           :winnotice "http://example.com/winnotice"})
 
 (deftest validate-test
   (testing "`validate`"
-    (let [ret (validate {:dsp dsp :status 204 :body ""})]
-      (is (= :no-bid (:status ret))
-          "204 no bid"))
+    (testing "204 no bid"
+      (let [ret (validate {:dsp dsp1 :status 204 :body ""})]
+       (is (= :no-bid (:status ret)))))
 
-    (let [ret (validate {:dsp dsp :status 201 :body ""})]
-      (is (= :invalid (:status ret))
-          "invalid response status"))
+    (testing "invalid response status"
+      (let [ret (validate {:dsp dsp1 :status 201 :body ""})]
+       (is (= :invalid (:status ret)))))
 
-    (let [ret (validate {:dsp dsp :status 200 :body ""})]
-      (is (= :invalid (:status ret))
-          "empty response"))
+    (testing "empty response"
+     (let [ret (validate {:dsp dsp1 :status 200 :body ""})]
+       (is (= :invalid (:status ret)))))
 
-    (let [ret (validate {:dsp dsp :status 200 :body "{"})]
-      (is (= :invalid (:status ret))
-          "invalid json string"))
+    (testing "invalid json string"
+      (let [ret (validate {:dsp dsp1 :status 200 :body "{"})]
+       (is (= :invalid (:status ret)))))
 
-    (let [ret (validate {:dsp dsp :status 200 :body "{\"id\": \"1\", \"bidPrice\": 0.1, \"advertiserId\": \"1\"}"})]
-      (is (= :valid (:status ret))
-          "valid request"))
+    (testing "valid request"
+      (let [ret (validate {:dsp dsp1 :status 200 :body "{\"id\": \"1\", \"bidPrice\": 0.1, \"advertiserId\": \"1\"}"})]
+       (is (= :valid (:status ret)))))
 
-    (let [ret (validate {:dsp dsp :status 200 :body "{\"bidPrice\": 0.1, \"advertiserId\": \"1\"}"})]
-      (is (= :invalid (:status ret))
-          "no id"))
+    (testing "no id"
+      (let [ret (validate {:dsp dsp1 :status 200 :body "{\"bidPrice\": 0.1, \"advertiserId\": \"1\"}"})]
+       (is (= :invalid (:status ret)))))
 
-    (let [ret (validate {:dsp dsp :status 200 :body "{\"id\": \"1\", \"advertiserId\": \"1\"}"})]
-      (is (= :invalid (:status ret))
-          "no bidPrice"))
+    (testing "no bidPrice"
+     (let [ret (validate {:dsp dsp1 :status 200 :body "{\"id\": \"1\", \"advertiserId\": \"1\"}"})]
+       (is (= :invalid (:status ret)))))
 
-    (let [ret (validate {:dsp dsp :status 200 :body "{\"id\": \"1\", \"advertiserId\": \"1\"}"})]
-      (is (= :invalid (:status ret))
-          "no advertiserId"))
-))
+    (testing "no advertiserId"
+      (let [ret (validate {:dsp dsp1 :status 200 :body "{\"id\": \"1\", \"advertiserId\": \"1\"}"})]
+       (is (= :invalid (:status ret)))))))
+
+(deftest auction-test
+  (testing "`auction`"
+    (testing "no valid response"
+      (let [fp 4.0
+            ret (auction fp [])]
+       (is (nil? ret))))
+    
+    (testing "one valid response with fp, and bidPrice is over the fp"
+      (let [fp 4.0
+            bid-price 4.1
+            ret (auction fp [{:dsp dsp1 :response {:id "1", :bidPrice bid-price :advertiserId "2"}}])]
+       (is ret)
+       (is (= dsp1 (:dsp ret)))
+       (is (= fp   (:second-price ret)))))
+
+    (testing "one valid response without fp"
+      (let [fp nil
+            bid-price 4.1
+            ret (auction fp [{:dsp dsp1 :response {:id "1", :bidPrice bid-price :advertiserId "2"}}])]
+       (is ret)
+       (is (= dsp1 (:dsp ret)))
+       (is (= bid-price   (:second-price ret)))))))
