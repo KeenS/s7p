@@ -98,7 +98,7 @@
                   (map validate)
                   (map log-validated)
                   (filter succeed?)
-                  (map (fn [[dsp res]] (dsp (:response res))))
+                  (map (fn [[dsp res]] {:dsp dsp :response (:response res)}))
                   (filter #(over-floor? (:floorPrice req) %))))
        (auction (:floorPrice req))
        (non-nil #(to-winnotice result %))
