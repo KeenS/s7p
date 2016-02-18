@@ -1,8 +1,10 @@
 (ns s7p.slave.core
-  (:require [cheshire.core :as json]
-            [org.httpkit.client :as http]
-            [clojure.core.async :refer [thread close! <!!]]
-            [s7p.config :refer [advertisers dsps]]))
+  (:require
+   [clojure.core.async :refer [thread close! <!!]]
+   [clojure.tools.logging :as log]
+   [cheshire.core :as json]
+   [org.httpkit.client :as http]
+   [s7p.config :refer [advertisers dsps]]))
 
 (def options {:timeout 100
               :keepalive 3000})
@@ -11,74 +13,92 @@
 (defn json-request-option [hash]
   (assoc options :body (json/generate-string hash)))
 
-(defn validate [[dsp res]]
+(defn validate [{dsp :dsp res :response}]
   (let [{:keys [status body]} @res
         body (and body (json/parse-string (apply str (map char body)) true))
         {:keys [id bidPrice advertiserId]} body
         ret (cond
-              (= status 204) {:nobid "no bid"}
+              (= status 204) {:status "no-bid"}
 
-              (not (= status 200)) {:invalid "not succeed" :status status}
+              (not (= status 200)) {:status :invalid :reason "response status" :code status}
 
 
-              body {:invalid "no body"}
+              body {:status :invalid :reason "no body"}
 
-              (not id) {:invalid "no id"}
-              (not (instance? String id)) {:invalid "id not string" :id id}
+              (not id) {:status :invalid :invalid "no bid id"}
+              (not (instance? String id)) {:status :invalid :reason "id not string" :id id}
 
               (not bidPrice) {:invalid "no bid price"}
-              (not (instance? Double bidPrice)) {:invalid "bidPrice not double" :bidPrice bidPrice}
+              (not (instance? Double bidPrice)) {:status :invalid :reason "bidPrice not double" :bidPrice bidPrice}
 
               (not advertiserId) {:invalid "no advertiser id"}
-              (not (instance? String advertiserId)) {:invalid "advertiserId not string" :advertiserId advertiserId}
-              true   {:valid body})]
+              (not (instance? String advertiserId)) {:status :invalid :reason "advertiserId not string" :advertiserId advertiserId}
+              true   {:status :valid :response body})]
     [dsp ret]))
 
-(defn succeed? [[_ res]]
-  (:valid res))
+(defn log-validated [arg]
+  (let [[{dsp :dsp v :response}] arg]
+   (log/info (json/generate-string (assoc v :id (:dsp_id dsp)))))
+  arg)
+
+(defn succeed? [v]
+  (= :valid (:status v)))
 
 
-(defn pick-winner-and-second-price [floor-price resps]
+(defn auction [floor-price resps]
   (case  (count resps)
     ;; TODO: log no contest
     0 nil
-    1 (let [res (first resps)
+    1 (let [{dsp :dsp res :response} (first resps)
             fp (or floor-price (:bidPrice res))]
-        [res fp])
-    _ (let [[res second-price] (->> (conj {:bidPrice floor-price} resps)
-                             (shuffle)
-                             (take 2))]
-        [res (:bidPrice second-price)])))
+        {:dsp dsp :response res :second-price fp})
+    _ (let [[{dsp :dsp res :response} {second-price :response}]
+            (->> (conj {:bidPrice floor-price} resps)
+                 (shuffle)
+                 (take 2))]
+        {:dsp dsp :response res :second-price (:bidPrice second-price)})))
 
-(defn click? [result response]
+(defn click? [result {response :response}]
   (result (.indexOf advertisers (:advertiserId response))))
 
-(defn winnotice [request result [[dsp response] second-price]]
-  ;; TODO: log
-  (println (assoc response :id (:id dsp)))
+(defn non-nil [f data]
+  (if data
+    (f data)
+    data))
 
-  (http/post (:winnotice dsp)
-             (json-request-option
-              {:id (:advertiserId response)
-               :price (+ 1 second-price)
-               :isClick (click? result response)})))
+(defn to-winnotice [result {:keys [dsp response second-price]}]
+  {:dsp dsp
+   :notice {:id (:advertiserId response)
+            :price (+ 1 second-price)
+            :isClick (click? result response)}})
+
+(defn log-winnotice-option [data]
+  (if data
+    (let [{dsp :dsp notice :notice} data]
+      (log/info (json/generate-string (assoc notice :status "auction" :dsp_id (:id dsp)))))
+    (log/info (json/generate-string {:status "no auction"}))))
+
+(defn winnotice [dsp {notice :notice}]
+  (http/post (:winnotice dsp) (json-request-option notice)))
 
 (defn work [req result]
-  (let [xf (comp
-                  (map (fn [dsp] [dsp (http/post (:url dsp) {:as :text} (json-request-option req))]))
+  (->> @dsps
+       (sequence (comp
+                  (map (fn [dsp] {:dsp dsp :response (http/post (:url dsp) {:as :text} (json-request-option req))}))
                   (map validate)
-                  ;; TODO: log validated responses
+                  (map log-validated)
                   (filter succeed?)
-                  (map (fn [[_ res]] (:valid res))))]
-          (some->> (sequence xf @dsps)
-                   (pick-winner-and-second-price (:floorPrice req))
-                   (winnotice req result))))
+                  (map (fn [[dsp res]] (dsp (:response res))))))
+       (auction (:floorPrice req))
+       (non-nil #(to-winnotice result %))
+       (log-winnotice-option)
+       (non-nil winnotice)))
 
 (defn test-run [req]
-  (let [xf (comp
-            (map (fn [dsp] [dsp (http/post (:url dsp) (json-request-option req))]))
-            (map validate))]
-          (sequence xf @dsps)))
+  (sequence (comp
+             (map (fn [dsp] [dsp (http/post (:url dsp) (json-request-option req))]))
+             (map validate))
+            @dsps))
 
 (defn worker [c]
   (thread

@@ -1,9 +1,10 @@
 (ns s7p.slave.main
   (:gen-class)
   (:require
+   [clojure.core.async :refer [thread close! chan >!! <!!]]
+   [clojure.tools.logging :as log]
    [cheshire.core :as json]
    [zeromq.zmq :as zmq]
-   [clojure.core.async :refer [thread close! chan >!! <!!]]
    [s7p.config :as config]
    [s7p.slave.manage :as manage]
    [s7p.slave.core :as core]))
@@ -14,7 +15,7 @@
     (loop []
       (let [json (zmq/receive-str reciever)
             req (json/parse-string json true)]
-        (println req)
+        (log/info json)
         (>!! ch req)
         (recur)))))
 
