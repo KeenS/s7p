@@ -52,13 +52,15 @@
   (testing "`auction`"
     (testing "no valid response"
       (let [fp 4.0
-            ret (auction fp [])]
+            arg []
+            ret (auction fp arg)]
        (is (nil? ret))))
     
     (testing "one valid response with fp, and bidPrice is over the fp"
       (let [fp 4.0
             bid-price 4.1
-            ret (auction fp [{:dsp dsp1 :response {:id "1", :bidPrice bid-price :advertiserId "2"}}])]
+            arg [{:dsp dsp1 :response {:id "1", :bidPrice bid-price :advertiserId "2"}}]
+            ret (auction fp arg)]
        (is ret)
        (is (= dsp1 (:dsp ret)))
        (is (= fp   (:second-price ret)))))
@@ -66,7 +68,8 @@
     (testing "one valid response without fp"
       (let [fp nil
             bid-price 4.1
-            ret (auction fp [{:dsp dsp1 :response {:id "1", :bidPrice bid-price :advertiserId "2"}}])]
+            arg [{:dsp dsp1 :response {:id "1", :bidPrice bid-price :advertiserId "2"}}]
+            ret (auction fp arg)]
        (is ret)
        (is (= dsp1 (:dsp ret)))
-       (is (= bid-price   (:second-price ret)))))))
+       (is (= bid-price (:second-price ret)))))))
