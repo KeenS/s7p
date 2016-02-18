@@ -31,7 +31,7 @@
 (defn -main [& args]
   (let [ch (chan)
         context (zmq/zcontext 1)
-        workers (manage/make-workers ch 1024)
+        workers (manage/make-workers ch 16)
         [command-addr req-addr] args
         ]
     (with-open [sub (doto (zmq/socket context :sub)

@@ -21,6 +21,7 @@
     {:dsp dsp :status status :body body}))
 
 (defn validate [{dsp :dsp status :status body :body}]
+  ;; TODO: validate id identity
   (try
    (let [body (and body (json/parse-string body true))
          {:keys [id bidPrice advertiserId]} body
