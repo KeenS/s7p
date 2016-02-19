@@ -63,7 +63,7 @@
             ret (auction fp arg)]
        (is ret)
        (is (= dsp1 (:dsp ret)))
-       (is (= fp   (:second-price ret)))))
+       (is (= fp   (:win-price ret)))))
 
     (testing "one valid response without fp"
       (let [fp nil
@@ -72,7 +72,7 @@
             ret (auction fp arg)]
        (is ret)
        (is (= dsp1 (:dsp ret)))
-       (is (= bid-price (:second-price ret)))))
+       (is (= bid-price (:win-price ret)))))
 
     (testing "more than 1 valid response"
       (let [fp 4.0
@@ -83,4 +83,4 @@
             ret (auction fp arg)]
         (is ret)
         (is (= dsp2 (:dsp ret)))
-        (is (= bid-price1 (:second-price ret)))))))
+        (is (= (+ 1 bid-price1) (:win-price ret)))))))
