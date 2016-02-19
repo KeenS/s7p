@@ -6,7 +6,7 @@
    [s7p.config :refer [dsps]]))
 
 
-(def qp100ms (atom 100))
+(def qp100ms (atom 200))
 
 (defn timer [ms]
   (let [c (chan)]
