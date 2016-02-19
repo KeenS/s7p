@@ -14,7 +14,14 @@
    [s7p.master.core :refer [remove-dsp create-dsp change-qps start-query stop-query qp100ms timer]]))
 
 
-(def testing? (atom 1))
+(def testing (atom 1))
+(def queries (atom nil))
+
+(defn running? []
+  @queries)
+
+(defn testing? []
+  (= @testing 1))
 
 (defn page []
   (html
@@ -26,24 +33,26 @@
              (submit-button "new dsp")])
    (form-to [:post "/control/qps"]
             [:div
-             "qps"        [:input {:name :qps :value (* 10 @qp100ms)}]
+             "qps: " (str (* 10 @qp100ms)) [:input {:name :qps :value (* 10 @qp100ms)}]
              (submit-button "change qps")])
-   [:div "mode: " (if (= 1 @testing?) "test" "prd")]
+   [:div "mode: " (if (testing?) "test" "prd")]
    [:div
-    [:span "status: "]
-    [:ul {:style "list-style: none"}
-          [:li {:style "float: left"} (form-to [:post "/control/start"] (submit-button "start"))]
-          [:li {:style "float: left"} (form-to [:post "/control/stop"]  (submit-button "stop"))]]]
-   [:ul
+    (if (testing?)
+      (form-to [:post "/control/prd"] (submit-button "production"))
+      (form-to [:post "/control/test"]  (submit-button "test")))]
+   [:div "status: " (if (running?) "running" "suspended")]
+   [:div
+    (if (running?)
+      (form-to [:post "/control/stop"]  (submit-button "stop"))
+      (form-to [:post "/control/start"] (submit-button "start")))]
+   [:table {:style "clear: left"}
+    [:tr [:th "id"] [:th "api url"] [:th "winnotice url"] [:th ""]]
     (for [dsp @config/dsps]
-      [:li (form-to [:post "/dsp/delete"]
-                    ;; TODO: visibility
-                    [:input {:name :id :visibility :hidden :value (:id dsp)}]
-                    [:ul {:style "list-style: none"}
-                     [:li {:style "float: left"} (:id dsp)]
-                     [:li {:style "float: left"} (:url dsp)]
-                     [:li {:style "float: left"} (:winnotice dsp)]
-                     (submit-button "delete")])])]))
+      [:tr [:input {:name :id :type :hidden :value (:id dsp)}]
+       [:td (:id dsp)]
+       [:td (:url dsp)]
+       [:td (:winnotice dsp)]
+       [:td (form-to [:post "/dsp/delete"] (submit-button "delete"))]])]))
 
 
 (defn to-req [line]
@@ -53,13 +62,12 @@
      :floorPrice (if (= "NA" fp) nil (Integer. fp))
      :device     (line 2)
      :user       (line 3)
-     :test       @testing?}
+     :test       @testing}
     :result      (mapv #(Integer. %) (subvec line 4))}))
 
 
 (defn -main [& args]
   (let [context (zmq/zcontext 1)
-        queries (atom nil)
         ;; somehow cannot use with-open
         in-file (io/reader (first args))
         pub (doto (zmq/socket context :pub)
@@ -71,14 +79,17 @@
         (GET "/" [] (fn [req] (page)))
         (POST "/dsp/create" {{id :id url :url winnotice :winnotice} :params}
               (fn [req]
+                (println "create" {:id id :url url :winnotice winnotice})
                 (create-dsp pub {:id id :url url :winnotice winnotice})
                 (redirect "/")))
         (POST "/dsp/delete" {{id :id} :params}
               (fn [req]
+                (println "delete" id)
                 (remove-dsp pub id)
                 (redirect "/")))
         (POST "/control/qps" {{qps :qps} :params}
               (fn [req]
+                (println "qps: " qps)
                 (change-qps (Integer. qps))
                 (redirect "/")))
         (POST "/control/start" []
@@ -94,12 +105,14 @@
                   (stop-query @queries)
                   (reset! queries nil))
                 (redirect "/")))
-        (POST "/mode/test" []
+        (POST "/control/test" []
               (fn [req]
-                (reset! testing? 1)
+                (println "test")
+                (reset! testing 1)
                 (redirect "/")))
-        (POST "/mode/prd" []
+        (POST "/control/prd" []
               (fn [req]
-                (reset! testing? 0)
+                (println "prd")
+                (reset! testing 0)
                 (redirect "/"))))
       (run-server (site #'routes) {:port 8080}))))
