@@ -18,14 +18,14 @@
 
 (defn start-query [sender reqs]
   (let [timer (timer 100)]
-    (go-loop [reqs reqs]
+    (go-loop []
       (let [t (<! timer)]
-        (println t)
         (doall
-         (doseq [req (take @qp100ms reqs)]
+         (doseq [req (take @qp100ms @reqs)]
            (zmq/send-str sender (json/generate-string req))))
+        (swap! reqs #(drop @qp100ms %))
         (if t
-          (recur (drop qp100ms reqs)))))
+          (recur))))
     timer))
 
 (defn stop-query [queries]
