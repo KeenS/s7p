@@ -62,13 +62,13 @@
     0 nil
     1 (let [{dsp :dsp res :response} (first resps)
             fp (or floor-price (:bidPrice res))]
-        {:dsp dsp :response res :second-price fp})
-    (let [[{dsp :dsp res :response} {second-price :response}]
+        {:dsp dsp :response res :win-price fp})
+    (let [[{dsp :dsp res :response} {win-price :response}]
           (->> resps
                (shuffle)
                (sort-by (comp :bidPrice :response) >)
                (take 2))]
-      {:dsp dsp :response res :second-price (:bidPrice second-price)})))
+      {:dsp dsp :response res :win-price (+ 1 (:bidPrice win-price))})))
 
 (defn click? [result response]
   (result (.indexOf (map :id advertisers) (:advertiserId response))))
@@ -78,10 +78,10 @@
     (f data)
     data))
 
-(defn to-winnotice [result {:keys [dsp response second-price]}]
+(defn to-winnotice [result {:keys [dsp response win-price]}]
   {:dsp dsp
    :notice {:id (:advertiserId response)
-            :price (+ 1 second-price)
+            :price win-price
             :isClick (click? result response)}})
 
 (defn log-winnotice-option [test data]
