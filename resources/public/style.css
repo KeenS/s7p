@@ -1,0 +1,48 @@
+input[type='submit'] {
+    padding: 3px;
+    background-color: #248;
+    color: #fff;
+    border-style: none;
+    border-radius: 3px;
+    display: inline;    
+}
+
+body {
+    margin: 0;
+}
+
+button:hover {
+    background-color: #24d;
+    color: #fff;
+}
+
+.header {
+    width: 100%;
+    background-color: #081040;
+    padding: 32px 0px;
+    display: block;
+}
+.title {
+    color: #fff;
+}
+
+.container {
+    position: relative;
+    width: 960px;
+    margin: 0 auto;
+}
+
+.main div{
+    margin-top: 5px;  
+}
+
+form {
+    margin: auto;
+}
+
+
+.msg {
+    background-color: #eaa;
+    padding: 5px;
+    border-radius: 5px;
+}

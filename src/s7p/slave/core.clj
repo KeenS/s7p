@@ -99,13 +99,13 @@
                   (map (fn [dsp] {:dsp dsp :response (http/post (:url dsp) (json-request-option req))}))
                   (map destruct)
                   (map validate)
-                  (map #(log-validated false %))
+                  (map #(log-validated test %))
                   (filter succeed?)
                   (map (fn [{dsp :dsp res :response}] {:dsp dsp :response res}))
                   (filter #(over-floor? (:floorPrice req) %))))
        (auction (:floorPrice req))
        (non-nil #(to-winnotice result %))
-       (log-winnotice-option false)
+       (log-winnotice-option test)
        (non-nil winnotice)))
 
 (defn worker [c]

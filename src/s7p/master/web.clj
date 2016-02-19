@@ -2,7 +2,7 @@
   (:require
    [clojure.data.csv :as csv]
    [clojure.java.io :as io]
-   [compojure.route :refer [files not-found]]
+   [compojure.route :as route]
    [compojure.handler :refer [site]]
    [compojure.core :refer [defroutes GET POST DELETE ANY context]]
    [ring.util.response :refer [redirect]]
@@ -10,6 +10,7 @@
    [zeromq.zmq :as zmq]
    [hiccup.core :refer :all]
    [hiccup.form :refer :all]
+   [hiccup.page :refer :all]
    [s7p.config :as config]
    [s7p.master.core :refer [remove-dsp create-dsp change-qps start-query stop-query qp100ms timer]]))
 
@@ -23,37 +24,82 @@
 (defn testing? []
   (= @testing 1))
 
-(defn page []
-  (html
-   (form-to [:post "/dsp/create"]
-            [:div
-             [:span {:style "display:inline-block"} [:div "dsp id"]        [:input {:name :id}]]
-             [:span {:style "display:inline-block"} [:div "bid api url"]   [:input {:name :url}]]
-             [:span {:style "display:inline-block"} [:div "winnotice url"] [:input {:name :winnotice}]]
-             (submit-button "new dsp")])
-   (form-to [:post "/control/qps"]
-            [:div
-             "qps: " (str (* 10 @qp100ms)) [:input {:name :qps :value (* 10 @qp100ms)}]
-             (submit-button "change qps")])
-   [:div "mode: " (if (testing?) "test" "prd")]
-   [:div
-    (if (testing?)
-      (form-to [:post "/control/prd"] (submit-button "production"))
-      (form-to [:post "/control/test"]  (submit-button "test")))]
-   [:div "status: " (if (running?) "running" "suspended")]
-   [:div
-    (if (running?)
-      (form-to [:post "/control/stop"]  (submit-button "stop"))
-      (form-to [:post "/control/start"] (submit-button "start")))]
-   [:table {:style "clear: left"}
-    [:tr [:th "id"] [:th "api url"] [:th "winnotice url"] [:th ""]]
-    (for [dsp @config/dsps]
-      [:tr [:input {:name :id :type :hidden :value (:id dsp)}]
-       [:td (:id dsp)]
-       [:td (:url dsp)]
-       [:td (:winnotice dsp)]
-       [:td (form-to [:post "/dsp/delete"] (submit-button "delete"))]])]))
+(defn head [info]
+  [:head
+   [:title "Home : s7p"]
+   (include-css "/style.css")])
 
+(defn header [info]
+  [:header {:class "header"}
+   [:h1 {:class "title container"} "s7p - Sexp version of s6p"]])
+
+(defn msg [info]
+  (if (:msg info)
+    [:div {:class "msg"} (:msg info)]
+    ))
+
+(defn dsp-create-form [info]
+  (form-to [:post "/dsp/create"]
+           [:div
+            [:span {:style "display:inline-block"} [:div (label :id              "dsp id")] (text-field {:required true} :id)]
+            [:span {:style "display:inline-block"} [:div (label :url        "bid api url")] (text-field {:required true} :url)]
+            [:span {:style "display:inline-block"} [:div (label :winnotice"winnotice url")] (text-field {:required true} :winnotice)]
+            (submit-button "new dsp")]))
+
+(defn change-qps-form [info]
+  (form-to [:post "/control/qps"]
+           [:div
+            "qps " (str (* 10 @qp100ms)) ": " (text-field {:required true :type "number"} :qps (* 10 @qp100ms))
+            (submit-button "change qps")]))
+
+(defn mode-toggle-form [info]
+  [:div "toggle to"
+   (if (testing?)
+     (form-to {:style "display:inline"} [:post "/control/prd"] (submit-button "production"))
+     (form-to {:style "display:inline"} [:post "/control/test"]  (submit-button "test")))
+   "mode"])
+
+(defn status-toggle-form [info]
+  [:div 
+   (if (running?)
+     (form-to {:style "display:inline"} [:post "/control/stop"]  (submit-button "stop"))
+     (form-to {:style "display:inline"} [:post "/control/start"] (submit-button "start")))
+   "the server"])
+
+(defn dsp-table [info]
+  [:table {:style "clear: left"}
+   [:tr [:th "id"] [:th "api url"] [:th "winnotice url"] [:th ""]]
+   (for [dsp @config/dsps]
+     [:tr 
+      [:td (:id dsp)]
+      [:td (:url dsp)]
+      [:td (:winnotice dsp)]
+      [:td (form-to  [:post "/dsp/delete"] [:input {:name :id :type :hidden :value (:id dsp)}] (submit-button "delete"))]])])
+
+(defn redirect-with-info [path info]
+  (redirect (str path "?" (ring.util.codec/form-encode info))))
+
+(defn page [info]
+  (html
+   (head info)
+   (header info)
+   [:div {:class "main container"}
+    (msg info)
+    (dsp-create-form info)
+    (change-qps-form info)
+    (mode-toggle-form info)
+    (status-toggle-form info)
+    (dsp-table info)]))
+
+(defn valid? [validate]
+  (= (:status validate) :ok))
+
+(defn validate-dsp [id url winnotice]
+  (cond
+    (not id)        {:status :error :msg "id cannot be blank"}
+    (not url)       {:status :error :msg "url cannot be blank"}
+    (not winnotice) {:status :error :msg "winnotice url cannot be blank"}
+    true            {:status :ok}))
 
 (defn to-req [line]
   (let [fp (line 1)]
@@ -65,7 +111,6 @@
      :test       @testing}
     :result      (mapv #(Integer. %) (subvec line 4))}))
 
-
 (defn -main [& args]
   (let [context (zmq/zcontext 1)
         ;; somehow cannot use with-open
@@ -76,43 +121,47 @@
                  (zmq/bind config/req-addr))]
     (let [reqs (atom (map to-req (drop 1 (csv/read-csv in-file))))]
       (defroutes routes
-        (GET "/" [] (fn [req] (page)))
+        (GET "/" {params :params} (fn [req] (page params)))
         (POST "/dsp/create" {{id :id url :url winnotice :winnotice} :params}
               (fn [req]
-                (println "create" {:id id :url url :winnotice winnotice})
-                (create-dsp pub {:id id :url url :winnotice winnotice})
-                (redirect "/")))
+                (let [dsp {:id id :url url :winnotice winnotice}
+                      v (validate-dsp id url winnotice)]
+                  (println "create" dsp)
+                  (if (valid? v)
+                    (create-dsp pub dsp))
+                  (redirect-with-info "/" v))))
         (POST "/dsp/delete" {{id :id} :params}
               (fn [req]
                 (println "delete" id)
                 (remove-dsp pub id)
-                (redirect "/")))
+                (redirect-with-info "/" {})))
         (POST "/control/qps" {{qps :qps} :params}
               (fn [req]
                 (println "qps: " qps)
                 (change-qps (Integer. qps))
-                (redirect "/")))
+                (redirect-with-info "/" {})))
         (POST "/control/start" []
               (fn [req]
                 (println "start")
                 (if (not @queries)
                   (reset! queries (start-query sender reqs)))
-                (redirect "/")))
+                (redirect-with-info "/" {})))
         (POST "/control/stop" []
               (fn [req]
                 (println "stop")
                 (when @queries
                   (stop-query @queries)
                   (reset! queries nil))
-                (redirect "/")))
+                (redirect-with-info "/" {})))
         (POST "/control/test" []
               (fn [req]
                 (println "test")
                 (reset! testing 1)
-                (redirect "/")))
+                (redirect-with-info "/" {})))
         (POST "/control/prd" []
               (fn [req]
                 (println "prd")
                 (reset! testing 0)
-                (redirect "/"))))
+                (redirect-with-info "/" {})))
+        (route/resources "/"))
       (run-server (site #'routes) {:port 8080}))))

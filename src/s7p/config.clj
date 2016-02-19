@@ -1,32 +1,17 @@
 (ns s7p.config)
 
-(def someurl "")
+(def dsps (atom []))
 
-(def dsps (atom
-           [{:id "1"
-             :url someurl
-             :winnotice someurl}
-            {:id "2"
-             :url someurl
-             :winnotice someurl}
-            {:id "3"
-             :url someurl
-             :winnotice someurl}
-            {:id "4"
-             :url someurl
-             :winnotice someurl}
-            {:id "5"
-             :url someurl
-             :winnotice someurl}
-            {:id "6"
-             :url someurl
-             :winnotice someurl}
-            {:id "7"
-             :url someurl
-             :winnotice someurl}
-            ]))
-
-(def advertisers [{:id "1"} {:id "2"} {:id "3"} {:id "4"}])
+(def advertisers [{:id "1" :CPC 200 :budget 10000000}
+                  {:id "2" :CPC 133 :budget 6000000}
+                  {:id "3" :CPC 100 :budget 6000000}
+                  {:id "4" :CPC 80 :budget 4000000}
+                  {:id "5" :CPC 67 :budget 4000000}
+                  {:id "6" :CPC 57 :budget 4000000}
+                  {:id "7" :CPC 50 :budget 2000000}
+                  {:id "8" :CPC 44 :budget 2000000}
+                  {:id "9" :CPC 40 :budget 1000000}
+                  {:id "10" :CPC 36 :budget 1000000}])
 
 (def req-addr "tcp://*:5557")
 (def command-addr "tcp://*:5558")
