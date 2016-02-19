@@ -24,12 +24,12 @@
 (defn testing? []
   (= @testing 1))
 
-(defn head [info]
+(defn head []
   [:head
    [:title "Home : s7p"]
    (include-css "/style.css")])
 
-(defn header [info]
+(defn header []
   [:header {:class "header"}
    [:h1 {:class "title container"} "s7p - Sexp version of s6p"]])
 
@@ -38,35 +38,41 @@
     [:div {:class "msg"} (:msg info)]
     ))
 
-(defn dsp-create-form [info]
+(defn qps-change-form []
+  (form-to [:post "/control/qps"]
+           (text-field {:required true :type "number"} :qps (* 10 @qp100ms))
+           (submit-button "change qps")))
+
+(defn mode-toggle-button []
+  (if (testing?)
+    (form-to {:style "display:inline"} [:post "/control/prd"] (submit-button "production"))
+    (form-to {:style "display:inline"} [:post "/control/test"]  (submit-button "test"))))
+
+(defn status-toggle-button []
+  (if (running?)
+    (form-to {:style "display:inline"} [:post "/control/stop"]  (submit-button "stop"))
+    (form-to {:style "display:inline"} [:post "/control/start"] (submit-button "start"))))
+
+(defn status-table []
+  [:table {:class "status"}
+   [:tr [:th "status"] [:th "mode"] [:th "qps"]]
+   [:tr
+    [:td (if (running?) "running" "suspended")]
+    [:td (if (testing?) "test"    "production")]
+    [:td (str (* 10 @qp100ms))]]
+   [:tr
+    [:td (status-toggle-button)]
+    [:td (mode-toggle-button)]
+    [:td (qps-change-form)]]])
+
+(defn dsp-create-form []
   (form-to [:post "/dsp/create"]
            [:div
             [:span {:style "display:inline-block"} [:div (label :id              "dsp id")] (text-field {:required true} :id)]
             [:span {:style "display:inline-block"} [:div (label :url        "bid api url")] (text-field {:required true} :url)]
             [:span {:style "display:inline-block"} [:div (label :winnotice"winnotice url")] (text-field {:required true} :winnotice)]
             (submit-button "new dsp")]))
-
-(defn change-qps-form [info]
-  (form-to [:post "/control/qps"]
-           [:div
-            "qps " (str (* 10 @qp100ms)) ": " (text-field {:required true :type "number"} :qps (* 10 @qp100ms))
-            (submit-button "change qps")]))
-
-(defn mode-toggle-form [info]
-  [:div "toggle to"
-   (if (testing?)
-     (form-to {:style "display:inline"} [:post "/control/prd"] (submit-button "production"))
-     (form-to {:style "display:inline"} [:post "/control/test"]  (submit-button "test")))
-   "mode"])
-
-(defn status-toggle-form [info]
-  [:div 
-   (if (running?)
-     (form-to {:style "display:inline"} [:post "/control/stop"]  (submit-button "stop"))
-     (form-to {:style "display:inline"} [:post "/control/start"] (submit-button "start")))
-   "the server"])
-
-(defn dsp-table [info]
+(defn dsp-table []
   [:table {:style "clear: left"}
    [:tr [:th "id"] [:th "api url"] [:th "winnotice url"] [:th ""]]
    (for [dsp @config/dsps]
@@ -77,29 +83,30 @@
       [:td (form-to  [:post "/dsp/delete"] [:input {:name :id :type :hidden :value (:id dsp)}] (submit-button "delete"))]])])
 
 (defn redirect-with-info [path info]
-  (redirect (str path "?" (ring.util.codec/form-encode info))))
+  (redirect (if (empty? info)
+              path
+              (str path "?" (ring.util.codec/form-encode info)))))
 
 (defn page [info]
   (html
-   (head info)
-   (header info)
+   (head)
+   (header)
    [:div {:class "main container"}
     (msg info)
-    (dsp-create-form info)
-    (change-qps-form info)
-    (mode-toggle-form info)
-    (status-toggle-form info)
-    (dsp-table info)]))
+    (status-table)
+    (dsp-create-form)
+    (dsp-table)]))
 
 (defn valid? [validate]
   (= (:status validate) :ok))
 
 (defn validate-dsp [id url winnotice]
   (cond
-    (not id)        {:status :error :msg "id cannot be blank"}
-    (not url)       {:status :error :msg "url cannot be blank"}
-    (not winnotice) {:status :error :msg "winnotice url cannot be blank"}
-    true            {:status :ok}))
+    (not id)                            {:status :error :msg "dsp id cannot be blank"}
+    (some #(= (:id %) id) @config/dsps) {:status :error :msg "dsp id cannot be duplicated"}
+    (not url)                           {:status :error :msg "url cannot be blank"}
+    (not winnotice)                     {:status :error :msg "winnotice url cannot be blank"}
+    true                                {:status :ok}))
 
 (defn to-req [line]
   (let [fp (line 1)]
