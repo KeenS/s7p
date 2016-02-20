@@ -142,5 +142,5 @@
   (thread
     (loop []
       (when-let [{:keys [req result]} (<!! c)]
-        (work (= 1 (:test req)) req result)
+        (work (:test req) req result)
         (recur)))))

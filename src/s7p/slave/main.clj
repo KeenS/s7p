@@ -1,6 +1,7 @@
 (ns s7p.slave.main
   (:gen-class)
   (:require
+   [clojure.tools.logging :as log]
    [clojure.core.async :refer [thread close! chan >!! <!!]]
    [cheshire.core :as json]
    [zeromq.zmq :as zmq]
@@ -41,6 +42,7 @@
         workers (manage/make-workers ch 1024)
         [command-addr req-addr] args
         ]
+    (log/info "called")
     (with-open [sub (doto (zmq/socket context :sub)
                       (zmq/connect command-addr)
                       (zmq/subscribe ""))
