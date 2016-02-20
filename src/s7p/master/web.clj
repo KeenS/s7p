@@ -114,15 +114,24 @@
     (not winnotice)                     {:status :error :msg "winnotice url cannot be blank"}
     true                                {:status :ok}))
 
+(def id-count (atom 0))
+
+(defn id-gen []
+  (swap! id-count inc)
+  (str @id-count))
+
 (defn to-req [line]
   (let [fp (line 1)]
-   {:req
-    {:site       (line 0)
-     :floorPrice (if (= "NA" fp) nil (Integer. fp))
-     :device     (line 2)
-     :user       (line 3)
-     :test       @testing}
-    :result      (mapv #(Integer. %) (subvec line 4))}))
+    (let [req      {:req
+                    {:id         (id-gen)
+                     :site       (line 0)
+                     :floorPrice (if (= "NA" fp) nil (Integer. fp))
+                     :device     (line 2)
+                     :user       (line 3)
+                     :test       @testing}
+                    :result      (mapv #(Integer. %) (subvec line 4))}]
+      (println req)
+      req)))
 
 (defn -main [& args]
   (let [context (zmq/zcontext 1)
