@@ -1,6 +1,6 @@
 <configuration>
   <appender name="BIDRESPONSE_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-    <file>bidresponse.log</file>
+    <file>/opt/s7p/bidresponse.log</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
       <fileNamePattern>bidresponse.%d{yyyy-MM-dd}.log</fileNamePattern>
       <maxHistory>7</maxHistory>
@@ -10,7 +10,7 @@
     </encoder>
   </appender>
   <appender name="WINNOTICE_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-    <file>winnotice.log</file>
+    <file>/opt/s7p/winnotice.log</file>
     <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
       <fileNamePattern>winnotice.%d{yyyy-MM-dd}.log</fileNamePattern>
       <maxHistory>7</maxHistory>
