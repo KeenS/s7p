@@ -1,7 +1,7 @@
 (ns s7p.config)
 
 (def dsps (atom []))
-
+(def dsps-file "/opt/s7p/dsps.json")
 (def advertisers [{:id "1" :CPC 200 :budget 10000000}
                   {:id "2" :CPC 133 :budget 6000000}
                   {:id "3" :CPC 100 :budget 6000000}
@@ -12,6 +12,7 @@
                   {:id "8" :CPC 44 :budget 2000000}
                   {:id "9" :CPC 40 :budget 1000000}
                   {:id "10" :CPC 36 :budget 1000000}])
+
 
 (def req-addr "tcp://*:5557")
 (def command-addr "tcp://*:5558")

@@ -9,5 +9,8 @@
 (defn remove-dsp [id]
   (reset! dsps (remove #(= (:id %) id) @dsps)))
 
+(defn sync-dsps [new-dsps]
+  (reset! dsps new-dsps))
+
 (defn make-workers [ch n]
   (doall (map (fn [_] (core/worker ch)) (range n))))

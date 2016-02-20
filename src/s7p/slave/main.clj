@@ -23,15 +23,22 @@
       (let [cmd (-> (zmq/receive-str sub)
                     (json/parse-string true))]
         (case (:command cmd)
-          "create-dsp" (println (:data cmd))
-          "remove-dsp" (println (:data cmd))))
+          "create-dsp" (do
+                         (println (:data cmd))
+                         (manage/add-dsp    (:data cmd)))
+          "remove-dsp" (do
+                         (println (:data cmd))
+                         (manage/remove-dsp (:data cmd)))
+          "sync-dsps"   (do
+                         (println (:data cmd))
+                         (manage/sync-dsps (:data cmd)))))
       (recur))))
 
 
 (defn -main [& args]
-  (let [ch (chan)
+  (let [ch (chan 100)
         context (zmq/zcontext 1)
-        workers (manage/make-workers ch 16)
+        workers (manage/make-workers ch 1024)
         [command-addr req-addr] args
         ]
     (with-open [sub (doto (zmq/socket context :sub)

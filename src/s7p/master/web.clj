@@ -1,4 +1,5 @@
 (ns s7p.master.web
+  (:gen-class)
   (:require
    [clojure.data.csv :as csv]
    [clojure.java.io :as io]
@@ -12,7 +13,7 @@
    [hiccup.form :refer :all]
    [hiccup.page :refer :all]
    [s7p.config :as config]
-   [s7p.master.core :refer [remove-dsp create-dsp change-qps start-query stop-query qp100ms timer]]))
+   [s7p.master.core :refer :all]))
 
 
 (def testing (atom 1))
@@ -72,6 +73,7 @@
             [:span {:style "display:inline-block"} [:div (label :url        "bid api url")] (text-field {:required true} :url)]
             [:span {:style "display:inline-block"} [:div (label :winnotice"winnotice url")] (text-field {:required true} :winnotice)]
             (submit-button "new dsp")]))
+
 (defn dsp-table []
   [:table {:style "clear: left"}
    [:tr [:th "id"] [:th "api url"] [:th "winnotice url"] [:th ""]]
@@ -81,6 +83,9 @@
       [:td (:url dsp)]
       [:td (:winnotice dsp)]
       [:td (form-to  [:post "/dsp/delete"] [:input {:name :id :type :hidden :value (:id dsp)}] (submit-button "delete"))]])])
+
+(defn dsp-sync-button []
+ (form-to {:style "display:inline"} [:post "/dsp/sync"] (submit-button "sync")))
 
 (defn redirect-with-info [path info]
   (redirect (if (empty? info)
@@ -95,6 +100,7 @@
     (msg info)
     (status-table)
     (dsp-create-form)
+    (dsp-sync-button)
     (dsp-table)]))
 
 (defn valid? [validate]
@@ -126,6 +132,7 @@
               (zmq/bind config/command-addr))
         sender (doto (zmq/socket context :push)
                  (zmq/bind config/req-addr))]
+    (load-dsps)
     (let [reqs (atom (map to-req (drop 1 (csv/read-csv in-file))))]
       (defroutes routes
         (GET "/" {params :params} (fn [req] (page params)))
@@ -134,13 +141,20 @@
                 (let [dsp {:id id :url url :winnotice winnotice}
                       v (validate-dsp id url winnotice)]
                   (println "create" dsp)
-                  (if (valid? v)
-                    (create-dsp pub dsp))
+                  (when (valid? v)
+                    (create-dsp pub dsp)
+                    (save-dsps))
                   (redirect-with-info "/" v))))
         (POST "/dsp/delete" {{id :id} :params}
               (fn [req]
                 (println "delete" id)
                 (remove-dsp pub id)
+                (save-dsps)
+                (redirect-with-info "/" {})))
+        (POST "/dsp/sync" []
+              (fn [req]
+                (println "sync")
+                (sync-all-dsp pub)
                 (redirect-with-info "/" {})))
         (POST "/control/qps" {{qps :qps} :params}
               (fn [req]
