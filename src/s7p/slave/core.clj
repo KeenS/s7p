@@ -113,14 +113,16 @@
             :price win-price
             :isClick (click? result response)}})
 
-(defn log-winnotice-option [test data]
+(defn log-winnotice-option [test request-id data]
   (if data
     (let [{dsp :dsp notice :notice} data]
       (winnotice/log (assoc notice :status "auction" :dspId (:id dsp) :test test)))
-    (winnotice/log {:status "no auction" :test test})))
+    (winnotice/log {:status "no auction" :id request-id :test test}))
+  data)
 
 (defn winnotice [{dsp :dsp notice :notice}]
-  (http/post (:winnotice dsp) (json-request-option notice)))
+  (http/post (:winnotice dsp) (json-request-option notice))
+  )
 
 (defn work [test req result]
   (->> @dsps
@@ -133,7 +135,7 @@
                   (map (fn [{dsp :dsp res :response}] {:dsp dsp :response res}))))
        (auction (:floorPrice req))
        (non-nil #(to-winnotice result %))
-       (log-winnotice-option test)
+       (log-winnotice-option test (:id req))
        (non-nil winnotice)))
 
 (defn worker [c]
