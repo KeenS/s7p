@@ -72,7 +72,7 @@
     
     (testing "one valid response with fp, and bidPrice is over the fp"
       (let [fp 4.0
-            bid-price 4.1
+            bid-price 4100.0
             arg [{:dsp dsp1 :response {:id "1", :bidPrice bid-price :advertiserId "2"}}]
             ret (auction fp arg)]
        (is ret)
@@ -81,29 +81,29 @@
 
     (testing "one valid response without fp"
       (let [fp nil
-            bid-price 4.1
+            bid-price 4000.0
             arg [{:dsp dsp1 :response {:id "1", :bidPrice bid-price :advertiserId "2"}}]
             ret (auction fp arg)]
        (is ret)
        (is (= dsp1 (:dsp ret)))
-       (is (= bid-price (:win-price ret)))))
+       (is (= (/ bid-price 1000) (:win-price ret)))))
 
     (testing "more than 1 valid response"
       (let [fp 4.0
-            bid-price1 4.1
-            bid-price2 4.2
+            bid-price1 4100
+            bid-price2 4200
             arg [{:dsp dsp1 :response {:id "1", :bidPrice bid-price1 :advertiserId "2"}}
                  {:dsp dsp2 :response {:id "1", :bidPrice bid-price2 :advertiserId "2"}}]
             ret (auction fp arg)]
         (is ret)
         (is (= dsp2 (:dsp ret)))
-        (is (= bid-price1 (:win-price ret)))))
+        (is (= (float (/ bid-price1 1000)) (:win-price ret)))))
 
     (testing "more than 1 valid response with same bid price"
       (let [fp 4.0
-            bid-price1 4.1
+            bid-price1 4100
             arg [{:dsp dsp1 :response {:id "1", :bidPrice bid-price1 :advertiserId "2"}}
                  {:dsp dsp2 :response {:id "1", :bidPrice bid-price1 :advertiserId "2"}}]
             ret (auction fp arg)]
         (is ret)
-        (is (= bid-price1 (:win-price ret)))))))
+        (is (= (float (/ bid-price1 1000)) (:win-price ret)))))))
