@@ -20,24 +20,55 @@
   (let [{:keys [status body]} @res]
     {:dsp dsp :status status :body body}))
 
-(defn validate [request-id {dsp :dsp status :status body :body}]
+(defn over-floor? [floor-price bid-price]
+  (if floor-price
+    (<= (* 1000 floor-price) bid-price)
+    true))
+
+(defn validate [request {dsp :dsp status :status body :body}]
   ;; TODO: validate id identity
   (try
    (let [body (and body (json/parse-string body true))
          {:keys [id bidPrice advertiserId]} body
          ret (cond
-               (= status 204) {:status :no-bid}
-               (not status) {:status :timeout}
-               (not (= status 200)) {:status :invalid :reason "response status" :code status}
-               (not body) {:status :invalid :reason "no body"}
-               (not id) {:status :invalid :invalid "no bid id"}
-               (not (instance? String id)) {:status :invalid :reason "id not string" :id id}
-               (not (= id request-id)) {:status :invalid :reason "bid id differs from request-id" :id id :request-id request-id}
-               (not bidPrice) {:status :invalid :reason "no bid price"}
-               (not (instance? Double bidPrice)) {:status :invalid :reason "bidPrice not double" :bidPrice bidPrice}
-               (not advertiserId) {:status :invalid :reason "no advertiser id"}
-               (not (instance? String advertiserId)) {:status :invalid :reason "advertiserId not string" :advertiserId advertiserId}
-               true   {:status :valid :response body})]
+               (= status 204)
+               {:status :no-bid}
+               
+               (not status)
+               {:status :timeout}
+               
+               (not (= status 200))
+               {:status :invalid :reason "response status" :code status}
+               
+               (not body)
+               {:status :invalid :reason "no body"}
+               
+               (not id)
+               {:status :invalid :invalid "no bid id"}
+               
+               (not (instance? String id))
+               {:status :invalid :reason "id not string" :id id}
+               
+               (not (= id (:id request)))
+               {:status :invalid :reason "bid id differs from request-id" :id id :request-id (:id request)}
+               
+               (not bidPrice)
+               {:status :invalid :reason "no bid price"}
+               
+               (not (instance? Double bidPrice))
+               {:status :invalid :reason "bidPrice not double" :bidPrice bidPrice}
+               
+               (not (over-floor? (:floorPrice request) bidPrice))
+               {:status :invalid :reason "bid price under floor price" :floorPrice (:floorPrice request) :bidPrice bidPrice}
+               
+               (not advertiserId)
+               {:status :invalid :reason "no advertiser id"}
+               
+               (not (instance? String advertiserId))
+               {:status :invalid :reason "advertiserId not string" :advertiserId advertiserId}
+               
+               true
+               {:status :valid :response body})]
      (assoc ret :dsp dsp))
    (catch JsonParseException e {:status :invalid :reason "invalid JSON"})
    (catch Exception          e {:status :invalid :reason (format "validation process raised unexpected error: %s" e)})))
@@ -52,11 +83,6 @@
 (defn succeed? [v]
   (= :valid (:status v)))
 
-
-(defn over-floor? [floor-price {res :response}]
-  (if floor-price
-    (<= (* 1000 floor-price) (:bidPrice res))
-    true))
 
 (defn auction [floor-price resps]
   (case  (count resps)
@@ -99,11 +125,10 @@
        (sequence (comp
                   (map (fn [dsp] {:dsp dsp :response (http/post (:url dsp) (json-request-option req))}))
                   (map destruct)
-                  (map #(validate (:id req) %))
+                  (map #(validate req %))
                   (map #(log-validated test %))
                   (filter succeed?)
-                  (map (fn [{dsp :dsp res :response}] {:dsp dsp :response res}))
-                  (filter #(over-floor? (:floorPrice req) %))))
+                  (map (fn [{dsp :dsp res :response}] {:dsp dsp :response res}))))
        (auction (:floorPrice req))
        (non-nil #(to-winnotice result %))
        (log-winnotice-option test)
