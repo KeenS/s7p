@@ -15,38 +15,52 @@
           :winnotice "http://example.com/winnotice"})
 
 (deftest validate-test
-  (testing "`validate`"
-    (testing "204 no bid"
-      (let [ret (validate {:dsp dsp1 :status 204 :body ""})]
-       (is (= :no-bid (:status ret)))))
+  (let [req1 {:id "1" :floorPrice 3.0 :site "http://test.org/" :device "Ubuntu Touch" :user "user1" :test 0}
+        req2 {:id "1" :floorPrice nil :site "http://test.org/" :device "Ubuntu Touch" :user "user1" :test 0}]
+   (testing "`validate`"
+     (testing "204 no bid"
+       (let [ret (validate req1 {:dsp dsp1 :status 204 :body ""})]
+         (is (= :no-bid (:status ret)))))
 
-    (testing "invalid response status"
-      (let [ret (validate {:dsp dsp1 :status 201 :body ""})]
-       (is (= :invalid (:status ret)))))
+     (testing "invalid response status"
+       (let [ret (validate req1 {:dsp dsp1 :status 201 :body ""})]
+         (is (= :invalid (:status ret)))))
 
-    (testing "empty response"
-     (let [ret (validate {:dsp dsp1 :status 200 :body ""})]
-       (is (= :invalid (:status ret)))))
+     (testing "empty response"
+       (let [ret (validate req1 {:dsp dsp1 :status 200 :body ""})]
+         (is (= :invalid (:status ret)))))
 
-    (testing "invalid json string"
-      (let [ret (validate {:dsp dsp1 :status 200 :body "{"})]
-       (is (= :invalid (:status ret)))))
+     (testing "invalid json string"
+       (let [ret (validate req1 {:dsp dsp1 :status 200 :body "{"})]
+         (is (= :invalid (:status ret)))))
 
-    (testing "valid request"
-      (let [ret (validate {:dsp dsp1 :status 200 :body "{\"id\": \"1\", \"bidPrice\": 0.1, \"advertiserId\": \"1\"}"})]
-       (is (= :valid (:status ret)))))
+     (testing "valid response"
+       (let [ret (validate req1 {:dsp dsp1 :status 200 :body "{\"id\": \"1\", \"bidPrice\": 4000.0, \"advertiserId\": \"1\"}"})]
+         (is (= :valid (:status ret)))))
 
-    (testing "no id"
-      (let [ret (validate {:dsp dsp1 :status 200 :body "{\"bidPrice\": 0.1, \"advertiserId\": \"1\"}"})]
-       (is (= :invalid (:status ret)))))
+     (testing "valid response2"
+       (let [ret (validate req2 {:dsp dsp1 :status 200 :body "{\"id\": \"1\", \"bidPrice\": 4000.0, \"advertiserId\": \"1\"}"})]
+         (is (= :valid (:status ret)))))
 
-    (testing "no bidPrice"
-     (let [ret (validate {:dsp dsp1 :status 200 :body "{\"id\": \"1\", \"advertiserId\": \"1\"}"})]
-       (is (= :invalid (:status ret)))))
+     (testing "no id"
+       (let [ret (validate req1 {:dsp dsp1 :status 200 :body "{\"bidPrice\": 4000.0, \"advertiserId\": \"1\"}"})]
+         (is (= :invalid (:status ret)))))
 
-    (testing "no advertiserId"
-      (let [ret (validate {:dsp dsp1 :status 200 :body "{\"id\": \"1\", \"advertiserId\": \"1\"}"})]
-       (is (= :invalid (:status ret)))))))
+     (testing "under floor"
+       (let [ret (validate req1 {:dsp dsp1 :status 200 :body "{\"id\": \"1\", \"bidPrice\": 1000.0, \"advertiserId\": \"1\"}"})]
+         (is (= :invalid (:status ret)))))
+
+     (testing "no bidPrice"
+       (let [ret (validate req1 {:dsp dsp1 :status 200 :body "{\"id\": \"1\", \"advertiserId\": \"1\"}"})]
+         (is (= :invalid (:status ret)))))
+
+     (testing "no advertiserId"
+       (let [ret (validate req1 {:dsp dsp1 :status 200 :body "{\"id\": \"1\", \"bidPrice\": 4000.0}"})]
+         (is (= :invalid (:status ret)))))
+
+     (testing "non maching id"
+       (let [ret (validate req1 {:dsp dsp1 :status 200 :body "{\"id\": \"2\", \"bidPrice\": 4000.0, \"advertiserId\": \"1\"}"})]
+         (is (= :invalid (:status ret))))))))
 
 (deftest auction-test
   (testing "`auction`"
