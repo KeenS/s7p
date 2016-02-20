@@ -126,7 +126,6 @@
 
 (defn -main [& args]
   (let [context (zmq/zcontext 1)
-        ;; somehow cannot use with-open
         in-file (io/reader (first args))
         pub (doto (zmq/socket context :pub)
               (zmq/bind config/command-addr))
