@@ -68,7 +68,7 @@
                (shuffle)
                (sort-by (comp :bidPrice :response) >)
                (take 2))]
-      {:dsp dsp :response res :win-price (+ 1 (:bidPrice win-price))})))
+      {:dsp dsp :response res :win-price (:bidPrice win-price)})))
 
 (defn click? [result response]
   (result (.indexOf (map :id advertisers) (:advertiserId response))))

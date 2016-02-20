@@ -83,4 +83,13 @@
             ret (auction fp arg)]
         (is ret)
         (is (= dsp2 (:dsp ret)))
-        (is (= (+ 1 bid-price1) (:win-price ret)))))))
+        (is (= bid-price1 (:win-price ret)))))
+
+    (testing "more than 1 valid response with same bid price"
+      (let [fp 4.0
+            bid-price1 4.1
+            arg [{:dsp dsp1 :response {:id "1", :bidPrice bid-price1 :advertiserId "2"}}
+                 {:dsp dsp2 :response {:id "1", :bidPrice bid-price1 :advertiserId "2"}}]
+            ret (auction fp arg)]
+        (is ret)
+        (is (= bid-price1 (:win-price ret)))))))
