@@ -17,5 +17,5 @@
                  [org.zeromq/jeromq "0.3.5"]
                  [org.zeromq/cljzmq "0.1.4" :exclusions [org.zeromq/jzmq]]]
   :jvm-opts ["-Dclojure.compiler.direct-linking=true" "-Djava.library.path=/usr/local/Cellar/zeromq/4.1.4/lib/:/usr/lib:/usr/local/lib"]
-  :aot [s7p.master.main s7p.slave.main]
+  :aot [s7p.master.web s7p.slave.main]
   )
