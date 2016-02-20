@@ -11,7 +11,8 @@
    [com.fasterxml.jackson.core JsonParseException]))
 
 (def options {:timeout 100
-              :keepalive 3000})
+              :keepalive 3000
+              :headers {"Content-Type" "application/json"}})
 
 (defn json-request-option [hash]
   (assoc options :as :text :body (json/generate-string hash)))
@@ -26,7 +27,7 @@
     true))
 
 (defn validate [request {dsp :dsp status :status body :body}]
-  ;; TODO: validate id identity
+  ;; TODO: validate status before parse json
   (try
    (let [body (and body (json/parse-string body true))
          {:keys [id bidPrice advertiserId]} body
@@ -55,7 +56,7 @@
                (not bidPrice)
                {:status :invalid :reason "no bid price"}
                
-               (not (instance? Double bidPrice))
+               (not (instance? Number bidPrice))
                {:status :invalid :reason "bidPrice not double" :bidPrice bidPrice}
                
                (not (over-floor? (:floorPrice request) bidPrice))
@@ -70,8 +71,8 @@
                true
                {:status :valid :response body})]
      (assoc ret :dsp dsp))
-   (catch JsonParseException e {:status :invalid :reason "invalid JSON"})
-   (catch Exception          e {:status :invalid :reason (format "validation process raised unexpected error: %s" e)})))
+   (catch JsonParseException e {:status :invalid :reason "invalid JSON" :body body :dsp dsp})
+   (catch Exception          e {:status :invalid :reason (format "validation process raised unexpected error: %s" e) :dsp dsp})))
 
 (defn log-validated [test arg]
   (let [{dsp :dsp res :response status :status} arg]
@@ -85,17 +86,18 @@
 
 
 (defn auction [floor-price resps]
-  (case  (count resps)
-    0 nil
-    1 (let [{dsp :dsp res :response} (first resps)
-            fp (or floor-price (:bidPrice res))]
-        {:dsp dsp :response res :win-price fp})
-    (let [[{dsp :dsp res :response} {win-price :response}]
-          (->> resps
-               (shuffle)
-               (sort-by (comp :bidPrice :response) >)
-               (take 2))]
-      {:dsp dsp :response res :win-price (:bidPrice win-price)})))
+  (let [floor-price (and floor-price (* 1000 floor-price))]
+   (case  (count resps)
+     0 nil
+     1 (let [{dsp :dsp res :response} (first resps)
+             fp (or floor-price (:bidPrice res))]
+         {:dsp dsp :response res :win-price (float (/ fp 1000))})
+     (let [[{dsp :dsp res :response} {win-price :response}]
+           (->> resps
+                (shuffle)
+                (sort-by (comp :bidPrice :response) >)
+                (take 2))]
+       {:dsp dsp :response res :win-price (float (/ (:bidPrice win-price) 1000))}))))
 
 (defn click? [result response]
   (result (.indexOf (map :id advertisers) (:advertiserId response))))
