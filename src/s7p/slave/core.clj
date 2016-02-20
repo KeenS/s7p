@@ -20,7 +20,7 @@
   (let [{:keys [status body]} @res]
     {:dsp dsp :status status :body body}))
 
-(defn validate [{dsp :dsp status :status body :body}]
+(defn validate [request-id {dsp :dsp status :status body :body}]
   ;; TODO: validate id identity
   (try
    (let [body (and body (json/parse-string body true))
@@ -32,6 +32,7 @@
                (not body) {:status :invalid :reason "no body"}
                (not id) {:status :invalid :invalid "no bid id"}
                (not (instance? String id)) {:status :invalid :reason "id not string" :id id}
+               (not (= id request-id)) {:status :invalid :reason "bid id differs from request-id" :id id :request-id request-id}
                (not bidPrice) {:status :invalid :reason "no bid price"}
                (not (instance? Double bidPrice)) {:status :invalid :reason "bidPrice not double" :bidPrice bidPrice}
                (not advertiserId) {:status :invalid :reason "no advertiser id"}
@@ -54,7 +55,7 @@
 
 (defn over-floor? [floor-price {res :response}]
   (if floor-price
-    (<= floor-price (:bidPrice res))
+    (<= (* 1000 floor-price) (:bidPrice res))
     true))
 
 (defn auction [floor-price resps]
@@ -98,7 +99,7 @@
        (sequence (comp
                   (map (fn [dsp] {:dsp dsp :response (http/post (:url dsp) (json-request-option req))}))
                   (map destruct)
-                  (map validate)
+                  (map #(validate (:id req) %))
                   (map #(log-validated test %))
                   (filter succeed?)
                   (map (fn [{dsp :dsp res :response}] {:dsp dsp :response res}))
