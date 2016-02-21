@@ -125,7 +125,7 @@
     (let [req      {:req
                     {:id         (id-gen)
                      :site       (line 0)
-                     :floorPrice (if (= "NA" fp) nil (Integer. fp))
+                     :floorPrice (if (= "NA" fp) nil (* 1000 (Integer. fp)))
                      :device     (line 2)
                      :user       (line 3)
                      :test       @testing}
