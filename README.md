@@ -1,14 +1,21 @@
 # s7p
 
-A Clojure library designed to ... well, that part is up to you.
+a toy ssp. Sexp version of s6p
 
 ## Usage
 
-FIXME
+to start master
 
-## License
 
-Copyright © 2016 FIXME
+```
+lein run -m s7p.master.web -- ./request-data.csv
+```
 
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
+to start slave,
+
+```
+lein run -m s7p.slave.main -- tcp://master.host:5558 tcp://master.host:5557
+```
+
+
+then access localhost:8080 and manage DSPs with Web UI
