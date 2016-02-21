@@ -23,56 +23,58 @@
 
 (defn over-floor? [floor-price bid-price]
   (if floor-price
-    (<= (* 1000 floor-price) bid-price)
+    (<= floor-price bid-price)
     true))
 
 (defn validate [request {dsp :dsp status :status body :body}]
   ;; TODO: validate status before parse json
-  (try
-   (let [body (and body (json/parse-string body true))
-         {:keys [id bidPrice advertiserId]} body
-         ret (cond
-               (= status 204)
-               {:status :no-bid}
-               
-               (not status)
-               {:status :timeout}
-               
-               (not (= status 200))
-               {:status :invalid :reason "response status" :code status}
-               
-               (not body)
-               {:status :invalid :reason "no body"}
-               
-               (not id)
-               {:status :invalid :invalid "no bid id"}
-               
-               (not (instance? String id))
-               {:status :invalid :reason "id not string" :id id}
-               
-               (not (= id (:id request)))
-               {:status :invalid :reason "bid id differs from request-id" :id id :request-id (:id request)}
-               
-               (not bidPrice)
-               {:status :invalid :reason "no bid price"}
-               
-               (not (instance? Number bidPrice))
-               {:status :invalid :reason "bidPrice not double" :bidPrice bidPrice}
-               
-               (not (over-floor? (:floorPrice request) bidPrice))
-               {:status :invalid :reason "bid price under floor price" :floorPrice (:floorPrice request) :bidPrice bidPrice}
-               
-               (not advertiserId)
-               {:status :invalid :reason "no advertiser id"}
-               
-               (not (instance? String advertiserId))
-               {:status :invalid :reason "advertiserId not string" :advertiserId advertiserId}
-               
-               true
-               {:status :valid :response body})]
-     (assoc ret :dsp dsp))
-   (catch JsonParseException e {:status :invalid :reason "invalid JSON" :body body :dsp dsp})
-   (catch Exception          e {:status :invalid :reason (format "validation process raised unexpected error: %s" e) :dsp dsp})))
+  (let [ret (cond
+              (= status 204)
+              {:status :no-bid}
+              
+              (not status)
+              {:status :timeout}
+              
+              (not (= status 200))
+              {:status :invalid :reason "response status" :code status :body body}
+              
+              :else
+              (try
+                (let [body (and body (json/parse-string body true))
+                      {:keys [id bidPrice advertiserId]} body]
+                  (cond
+                    (not body)
+                    {:status :invalid :reason "no body"}
+                    
+                    (not id)
+                    {:status :invalid :invalid "no bid id"}
+                    
+                    (not (instance? String id))
+                    {:status :invalid :reason "id not string" :id id}
+                    
+                    (not (= id (:id request)))
+                    {:status :invalid :reason "bid id differs from request-id" :id id :request-id (:id request)}
+                    
+                    (not bidPrice)
+                    {:status :invalid :reason "no bid price"}
+                    
+                    (not (instance? Number bidPrice))
+                    {:status :invalid :reason "bidPrice not double" :bidPrice bidPrice}
+                    
+                    (not (over-floor? (:floorPrice request) bidPrice))
+                    {:status :invalid :reason "bid price under floor price" :floorPrice (:floorPrice request) :bidPrice bidPrice}
+                    
+                    (not advertiserId)
+                    {:status :invalid :reason "no advertiser id"}
+                    
+                    (not (instance? String advertiserId))
+                    {:status :invalid :reason "advertiserId not string" :advertiserId advertiserId}
+
+                    :else
+                    {:status :valid :response body}))
+                (catch JsonParseException e {:status :invalid :reason "invalid JSON" :body body})
+                (catch Exception          e {:status :invalid :reason (format "validation process raised unexpected error: %s" e)})))]
+    (assoc ret :dsp dsp)))
 
 (defn log-validated [test arg]
   (let [{dsp :dsp res :response status :status} arg]
@@ -86,7 +88,7 @@
 
 
 (defn auction [floor-price resps]
-  (let [floor-price (and floor-price (* 1000 floor-price))]
+  (let [floor-price (and floor-price floor-price)]
    (case  (count resps)
      0 nil
      1 (let [{dsp :dsp res :response} (first resps)
@@ -109,7 +111,7 @@
 
 (defn to-winnotice [result {:keys [dsp response win-price]}]
   {:dsp dsp
-   :notice {:id (:advertiserId response)
+   :notice {:id (:id response)
             :price win-price
             :isClick (click? result response)}})
 
