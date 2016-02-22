@@ -42,9 +42,22 @@ and to start slave(s):
 lein run -m s7p.slave.main -- tcp://master.host:5558 tcp://master.host:5557
 ```
 
+then access port 8080 at master host.
+
 or to run built jar:
 
 ```
 java -cp ./target/s7p-0.0.1-standalone.jar s7p.master.web ./request-data.csv
 java -cp ./target/s7p-0.0.1-standalone.jar s7p.slave.main tcp://master.host:5558 tcp://master.host:5557
 ```
+
+# App Organization
+When you add a DSP from Web UI, master publishes to all the slaves via controll the
+channel that "register a new dsp to dsp list" and similary in remove. When you start
+requesting, the master reads request data from the given csv file and enqueue them
+into request channel and one of the slaves dequeue it, then request the registered DSPs.
+Because master - slave communication is mono-directional, you can add or restart any
+number of slaves before and after the master starts up but data syncing (the 'sync' button)
+is needed to sync the DSP lists.
+
+![app organization](images/s7p.svg)
