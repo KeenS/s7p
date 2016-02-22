@@ -128,8 +128,8 @@
 
 (defn work [test req result]
   (->> @dsps
+       (map (fn [dsp] {:dsp dsp :response (http/post (:url dsp) (json-request-option req))}))
        (sequence (comp
-                  (map (fn [dsp] {:dsp dsp :response (http/post (:url dsp) (json-request-option req))}))
                   (map destruct)
                   (map #(validate req %))
                   (map #(log-validated test %))
