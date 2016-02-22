@@ -42,7 +42,6 @@
         workers (manage/make-workers ch 1024)
         [command-addr req-addr] args
         ]
-    (log/info "called")
     (with-open [sub (doto (zmq/socket context :sub)
                       (zmq/connect command-addr)
                       (zmq/subscribe ""))
