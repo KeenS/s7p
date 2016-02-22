@@ -60,4 +60,4 @@ Because master - slave communication is mono-directional, you can add or restart
 number of slaves before and after the master starts up but data syncing (the 'sync' button)
 is needed to sync the DSP lists.
 
-![app organization](images/s7p.svg)
+![app organization](images/s7p.png)
