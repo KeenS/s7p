@@ -1,6 +1,6 @@
 # s7p
 
-a toy ssp. Sexp version of s6p
+a toy SSP. Sexp version of s6p
 
 ## Usage
 S7p is a Clojure project so [leiningen](http://leiningen.org/) is required.
@@ -26,7 +26,7 @@ $ lein uberjar
 $ java -cp ./target/s7p-0.0.1-standalone.jar ./request-data.csv
 ```
 
-then access localhost:8080 and manage DSPs with Web UI
+then access localhost:8080 and manage DSPs, start/stop requesting with Web UI
 
 ### Master - Slave mode
 To start master:
@@ -52,8 +52,8 @@ java -cp ./target/s7p-0.0.1-standalone.jar s7p.slave.main tcp://master.host:5558
 ```
 
 # App Organization
-When you add a DSP from Web UI, master publishes to all the slaves via controll the
-channel that "register a new dsp to dsp list" and similary in remove. When you start
+When you add a DSP from Web UI, master publishes to all the slaves via the controll
+channel that "register a new DSP to the DSP list" and similary in remove. When you start
 requesting, the master reads request data from the given csv file and enqueue them
 into request channel and one of the slaves dequeue it, then request the registered DSPs.
 Because master - slave communication is mono-directional, you can add or restart any
