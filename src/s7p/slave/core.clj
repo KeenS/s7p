@@ -27,7 +27,6 @@
     true))
 
 (defn validate [request {dsp :dsp status :status body :body}]
-  ;; TODO: validate status before parse json
   (let [ret (cond
               (= status 204)
               {:status :no-bid}
