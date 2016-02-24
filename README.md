@@ -23,7 +23,7 @@ or, if you want to make jar,
 
 ```
 $ lein uberjar
-$ java -cp ./target/s7p-0.0.1-standalone.jar ./request-data.csv
+$ java -cp ./target/s7p-0.0.1-standalone.jar ./simulation_data.csv
 ```
 
 then access localhost:8080 and manage DSPs, start/stop requesting with Web UI
@@ -33,7 +33,7 @@ To start master:
 
 
 ```
-lein run -m s7p.master.web -- ./request-data.csv
+lein run -m s7p.master.web -- ./simulation_data.csv
 ```
 
 and to start slave(s):
@@ -47,11 +47,13 @@ then access port 8080 at master host.
 or to run built jar:
 
 ```
-java -cp ./target/s7p-0.0.1-standalone.jar s7p.master.web ./request-data.csv
+java -cp ./target/s7p-0.0.1-standalone.jar s7p.master.web ./simulation_data.csv
 java -cp ./target/s7p-0.0.1-standalone.jar s7p.slave.main tcp://master.host:5558 tcp://master.host:5557
 ```
 
 # App Organization
+The master and slaves are connected with 2 channels based on ZeroMQ. One channel is request data channel (push-pull type)
+and the other is controll channel (publish-subscribe type).
 When you add a DSP from Web UI, master publishes to all the slaves via the controll
 channel that "register a new DSP to the DSP list" and similary in remove. When you start
 requesting, the master reads request data from the given csv file and enqueue them
@@ -61,3 +63,9 @@ number of slaves before and after the master starts up but data syncing (the 'sy
 is needed to sync the DSP lists.
 
 ![app organization](images/s7p.png)
+
+# Note
+
+Currently, master pushes request data in file only once. As `simulation_data.csv` contains only
+10,000 request data, master will stop after it pushes 10,000 requests to ZeroMQ.
+If you want to start requesting again, you need to restart the master.
