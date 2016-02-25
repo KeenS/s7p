@@ -23,7 +23,7 @@ or, if you want to make jar,
 
 ```
 $ lein uberjar
-$ java -cp ./target/s7p-0.0.1-standalone.jar ./simulation_data.csv
+$ java -jar ./target/s7p-0.0.1-standalone.jar ./simulation_data.csv
 ```
 
 then access localhost:8080 and manage DSPs, start/stop requesting with Web UI
